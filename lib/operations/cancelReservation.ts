@@ -20,7 +20,7 @@ export const cancelReservation = defineOperation({
         "Must be true to confirm cancellation. Pass confirm: true to proceed."
       ),
   },
-  async handler({ reservationId, confirm }) {
+  async handler({ reservationId, confirm }, ctx) {
     if (!confirm) {
       return fail(
         "CONFIRMATION_REQUIRED",
@@ -28,11 +28,9 @@ export const cancelReservation = defineOperation({
       );
     }
 
-    const reservation = store.getReservation(reservationId);
-    if (!reservation) return fail("NOT_FOUND", `Reservation ${reservationId} not found`);
-
-    const cancelled = store.cancelReservation(reservationId);
-    if (!cancelled) return fail("CANCEL_FAILED", "Failed to cancel reservation");
+    const result = store.cancelReservation(reservationId, ctx.userId);
+    if (result === "not_found") return fail("NOT_FOUND", `Reservation ${reservationId} not found`);
+    if (result === "forbidden") return fail("FORBIDDEN", "You do not own this reservation");
 
     return ok({ cancelled: true, reservationId });
   },

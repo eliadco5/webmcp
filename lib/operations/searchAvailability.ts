@@ -23,7 +23,7 @@ export const searchAvailability = defineOperation({
       .max(20)
       .describe("Number of people in the party"),
   },
-  async handler({ date, partySize }) {
+  async handler({ date, partySize }, _ctx) {
     const slots: Slot[] = store.searchAvailability(date, partySize);
     const message = slots.length === 0
       ? `No availability on ${date} for ${partySize} people.`

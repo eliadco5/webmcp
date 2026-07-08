@@ -20,7 +20,7 @@ export const createReservation = defineOperation({
       .max(20)
       .describe("Number of people in the party"),
   },
-  async handler({ slotId, name, partySize }) {
+  async handler({ slotId, name, partySize }, ctx) {
     const slot = store.getSlot(slotId);
     if (!slot) return fail("NOT_FOUND", `Slot ${slotId} not found`);
     if (!slot.available) return fail("SLOT_UNAVAILABLE", "This slot is no longer available");
@@ -30,7 +30,7 @@ export const createReservation = defineOperation({
         `Slot capacity is ${slot.capacity}, requested ${partySize}`
       );
 
-    const reservation = store.createReservation(slotId, name, partySize);
+    const reservation = store.createReservation(slotId, name, partySize, ctx.userId);
     if (!reservation) return fail("CREATE_FAILED", "Failed to create reservation");
 
     return ok({ reservation });

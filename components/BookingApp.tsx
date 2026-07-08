@@ -11,8 +11,30 @@ function todayISO() {
   return new Date().toISOString().split("T")[0];
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      style={{
+        fontSize: 11, padding: "2px 8px", borderRadius: 4,
+        background: copied ? "#22c55e" : "#312e81", color: "#e0e7ff",
+        border: "none", cursor: "pointer",
+      }}
+    >
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
+
 export function BookingApp() {
-  const { call, storeEvents, auditEntries } = useBridge();
+  const { call, storeEvents, auditEntries, user, agentToken, logout } = useBridge();
 
   const [searchDate, setSearchDate] = useState(todayISO());
   const [partySize, setPartySize] = useState(2);
@@ -32,10 +54,8 @@ export function BookingApp() {
     if (result.success && result.data) setReservations(result.data.reservations);
   }, [call]);
 
-  // Initial load
   useEffect(() => { refreshReservations(); }, [refreshReservations]);
 
-  // Refresh whenever the server store changes (MCP or UI calls)
   useEffect(() => {
     if (storeEvents.length > 0) refreshReservations();
   }, [storeEvents, refreshReservations]);
@@ -86,16 +106,34 @@ export function BookingApp() {
     }
   }
 
+  const mcpCommand = agentToken
+    ? `claude mcp add --transport http booking \\\n  http://localhost:3002/api/mcp \\\n  --header "Authorization: Bearer ${agentToken}"`
+    : "";
+
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px" }}>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700 }}>AgentBridge Booking Demo</h1>
-        <p style={{ color: "#6b7280", marginTop: 6 }}>
-          Book a table — or let an AI agent do it.{" "}
-          <code style={{ fontSize: 12, background: "#f3f4f6", padding: "2px 6px", borderRadius: 4 }}>
-            MCP endpoint: /api/mcp
-          </code>
-        </p>
+      {/* Header */}
+      <div style={{ marginBottom: 32, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 700 }}>AgentBridge Booking Demo</h1>
+          <p style={{ color: "#6b7280", marginTop: 6 }}>
+            Book a table — or let an AI agent do it.
+          </p>
+        </div>
+        {user && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 13, color: "#374151" }}>
+              Signed in as <strong>{user.displayName}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={logout}
+              style={{ fontSize: 12, padding: "4px 12px", background: "#f3f4f6", color: "#374151" }}
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
@@ -189,7 +227,7 @@ export function BookingApp() {
         {/* Right column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div className="card">
-            <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 16 }}>Reservations</h2>
+            <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 16 }}>My Reservations</h2>
             <ReservationList
               reservations={reservations}
               onCancel={handleCancel}
@@ -207,16 +245,44 @@ export function BookingApp() {
             <ActivityLog entries={auditEntries} />
           </div>
 
+          {/* Agent connect card */}
           <div className="card" style={{ background: "#1e1b4b", color: "#e0e7ff" }}>
             <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Connect an AI Agent</h2>
+
+            {agentToken && (
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 12, marginBottom: 4, color: "#a5b4fc" }}>Your agent token:</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <code style={{
+                    background: "#312e81", borderRadius: 4, padding: "4px 8px",
+                    fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {agentToken}
+                  </code>
+                  <CopyButton text={agentToken} />
+                </div>
+              </div>
+            )}
+
             <p style={{ fontSize: 12, marginBottom: 8, color: "#a5b4fc" }}>Claude Code:</p>
-            <pre style={{ background: "#312e81", borderRadius: 6, padding: 10, fontSize: 11, overflowX: "auto", marginBottom: 12 }}>
-              {`claude mcp add --transport http booking \\\n  http://localhost:3002/api/mcp`}
-            </pre>
-            <p style={{ fontSize: 12, marginBottom: 8, color: "#a5b4fc" }}>MCP Inspector:</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <pre style={{ background: "#312e81", borderRadius: 6, padding: 10, fontSize: 11, overflowX: "auto", margin: 0 }}>
+                {mcpCommand}
+              </pre>
+              {mcpCommand && (
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <CopyButton text={mcpCommand.replace(/\\\n\s+/g, " ")} />
+                </div>
+              )}
+            </div>
+
+            <p style={{ fontSize: 12, marginTop: 12, marginBottom: 8, color: "#a5b4fc" }}>MCP Inspector:</p>
             <pre style={{ background: "#312e81", borderRadius: 6, padding: 10, fontSize: 11, overflowX: "auto" }}>
               {`npx @modelcontextprotocol/inspector \\\n  http://localhost:3002/api/mcp`}
             </pre>
+            <p style={{ fontSize: 11, color: "#818cf8", marginTop: 6 }}>
+              Use the Authorization header with your token in the inspector.
+            </p>
           </div>
         </div>
       </div>

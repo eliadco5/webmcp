@@ -10,8 +10,8 @@ export const listReservations = defineOperation({
   permission: "read",
   tags: ["booking", "reservation"],
   inputSchema: {},
-  async handler(_input) {
-    const reservations = store.getReservations();
+  async handler(_input, ctx) {
+    const reservations = store.getReservations(ctx.userId);
     return ok({ reservations, count: reservations.length });
   },
 });

@@ -2,11 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { registry } from "@/lib/operations";
 import { auditLog } from "@/lib/auditlog";
+import { fail } from "@/lib/result";
 
-/**
- * Registers every operation from the shared registry as an MCP tool on the
- * provided McpServer. Call this inside createMcpHandler (or a test harness).
- */
 export function registerMcpTools(server: McpServer) {
   for (const op of registry) {
     const zodShape = op.inputSchema as Record<string, z.ZodTypeAny>;
@@ -18,9 +15,21 @@ export function registerMcpTools(server: McpServer) {
         description: op.description,
         inputSchema: zodShape,
       },
-      async (input: Record<string, unknown>) => {
+      // extra is RequestHandlerExtra; authInfo.extra.userId is set by withMcpAuth
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async (input: Record<string, unknown>, extra: any) => {
+        const userId: string | undefined = extra?.authInfo?.extra?.userId;
+        if (!userId) {
+          const err = fail("UNAUTHENTICATED", "A valid user token is required.");
+          auditLog.record(op.name, input, false, "agent");
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify(err, null, 2) }],
+            isError: true,
+          };
+        }
+
         try {
-          const result = await op.handler(input);
+          const result = await op.handler(input, { userId });
           auditLog.record(op.name, input, result.success, "agent");
           if (result.success) {
             return {
@@ -28,12 +37,7 @@ export function registerMcpTools(server: McpServer) {
             };
           } else {
             return {
-              content: [
-                {
-                  type: "text" as const,
-                  text: JSON.stringify(result.error, null, 2),
-                },
-              ],
+              content: [{ type: "text" as const, text: JSON.stringify(result.error, null, 2) }],
               isError: true,
             };
           }
