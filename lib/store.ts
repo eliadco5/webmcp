@@ -14,6 +14,7 @@ export interface Reservation {
   date: string;
   time: string;
   createdAt: string;
+  userId: string;
 }
 
 export type StoreEvent =
@@ -78,18 +79,19 @@ class BookingStore {
     );
   }
 
-  getReservations(): Reservation[] {
-    return this.reservations;
+  getReservations(userId: string): Reservation[] {
+    return this.reservations.filter((r) => r.userId === userId);
   }
 
-  getReservation(id: string): Reservation | undefined {
-    return this.reservations.find((r) => r.id === id);
+  getReservation(id: string, userId: string): Reservation | undefined {
+    return this.reservations.find((r) => r.id === id && r.userId === userId);
   }
 
   createReservation(
     slotId: string,
     name: string,
-    partySize: number
+    partySize: number,
+    userId: string
   ): Reservation | null {
     const slot = this.slots.find((s) => s.id === slotId);
     if (!slot || !slot.available || slot.capacity < partySize) return null;
@@ -102,6 +104,7 @@ class BookingStore {
       date: slot.date,
       time: slot.time,
       createdAt: new Date().toISOString(),
+      userId,
     };
 
     slot.available = false;
@@ -113,9 +116,10 @@ class BookingStore {
     return reservation;
   }
 
-  cancelReservation(id: string): boolean {
+  cancelReservation(id: string, userId: string): "ok" | "not_found" | "forbidden" {
     const idx = this.reservations.findIndex((r) => r.id === id);
-    if (idx === -1) return false;
+    if (idx === -1) return "not_found";
+    if (this.reservations[idx].userId !== userId) return "forbidden";
 
     const reservation = this.reservations[idx];
     this.reservations.splice(idx, 1);
@@ -128,7 +132,7 @@ class BookingStore {
       this.emit({ type: "availability.changed", slotId: slot.id, available: true });
     }
 
-    return true;
+    return "ok";
   }
 }
 

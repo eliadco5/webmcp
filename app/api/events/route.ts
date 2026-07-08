@@ -1,7 +1,19 @@
+import { cookies } from "next/headers";
 import { store } from "@/lib/store";
 import { auditLog } from "@/lib/auditlog";
+import { userForSession, SESSION_COOKIE } from "@/lib/auth";
 
 export async function GET() {
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+  const user = sessionId ? userForSession(sessionId) : null;
+  if (!user) {
+    return Response.json(
+      { success: false, error: { code: "UNAUTHENTICATED", message: "Login required." } },
+      { status: 401 }
+    );
+  }
+
   const encoder = new TextEncoder();
   let unsubStore: (() => void) | null = null;
   let unsubAudit: (() => void) | null = null;

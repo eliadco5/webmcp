@@ -1,16 +1,29 @@
 "use client";
 
 import { useEffect, useRef, createContext, useContext, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { StoreEvent } from "@/lib/store";
 import type { AuditEntry } from "@/lib/auditlog";
 
-// All operation calls go through the server — same process as MCP
-export async function serverCall(name: string, params: Record<string, unknown> = {}): Promise<unknown> {
+interface AuthUser {
+  id: string;
+  username: string;
+  displayName: string;
+}
+
+export async function serverCall(
+  name: string,
+  params: Record<string, unknown> = {}
+): Promise<unknown> {
   const res = await fetch("/api/call", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, params }),
   });
+  if (res.status === 401) {
+    window.location.href = "/login";
+    return { success: false, error: { code: "UNAUTHENTICATED", message: "Login required." } };
+  }
   return res.json();
 }
 
@@ -19,6 +32,9 @@ interface BridgeContextValue {
   storeEvents: StoreEvent[];
   auditEntries: AuditEntry[];
   confirmPending: { name: string; input: Record<string, unknown>; resolve: (v: boolean) => void } | null;
+  user: AuthUser | null;
+  agentToken: string | null;
+  logout: () => Promise<void>;
 }
 
 const BridgeContext = createContext<BridgeContextValue>({
@@ -26,6 +42,9 @@ const BridgeContext = createContext<BridgeContextValue>({
   storeEvents: [],
   auditEntries: [],
   confirmPending: null,
+  user: null,
+  agentToken: null,
+  logout: async () => {},
 });
 
 export function useBridge() {
@@ -33,16 +52,39 @@ export function useBridge() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [agentToken, setAgentToken] = useState<string | null>(null);
   const [storeEvents, setStoreEvents] = useState<StoreEvent[]>([]);
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [confirmPending, setConfirmPending] = useState<BridgeContextValue["confirmPending"]>(null);
   const resolveRef = useRef<((v: boolean) => void) | null>(null);
 
+  // Auth check on mount
+  useEffect(() => {
+    fetch("/api/me")
+      .then(async (r) => {
+        if (r.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        const data = await r.json();
+        if (data.success) {
+          setUser(data.user);
+          setAgentToken(data.agentToken);
+        }
+      })
+      .catch(() => router.replace("/login"));
+  }, [router]);
+
   // Load initial audit log entries
   useEffect(() => {
-    fetch("/api/audit").then(r => r.json()).then((data: AuditEntry[]) => {
-      setAuditEntries(data);
-    }).catch(() => {});
+    fetch("/api/audit")
+      .then(r => r.ok ? r.json() : null)
+      .then((data: AuditEntry[] | null) => {
+        if (data) setAuditEntries(data);
+      })
+      .catch(() => {});
   }, []);
 
   // Subscribe to server-sent events
@@ -78,9 +120,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     resolveRef.current = null;
   }
 
-  // Wrap serverCall to intercept confirmation-required operations in the UI
   const call = useCallback(async (name: string, params: Record<string, unknown> = {}): Promise<unknown> => {
-    // Operations that need in-browser confirmation before hitting the server
     if (name === "cancelReservation") {
       const approved = await handleConfirmation(name, params);
       if (!approved) {
@@ -90,8 +130,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return serverCall(name, params);
   }, [handleConfirmation]);
 
+  const logout = useCallback(async () => {
+    await fetch("/api/logout", { method: "POST" });
+    setUser(null);
+    setAgentToken(null);
+    router.replace("/login");
+  }, [router]);
+
   return (
-    <BridgeContext.Provider value={{ call, storeEvents, auditEntries, confirmPending }}>
+    <BridgeContext.Provider value={{ call, storeEvents, auditEntries, confirmPending, user, agentToken, logout }}>
       {children}
       {confirmPending && (
         <ConfirmationDialog

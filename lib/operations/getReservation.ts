@@ -12,8 +12,8 @@ export const getReservation = defineOperation({
   inputSchema: {
     reservationId: z.string().describe("ID of the reservation to retrieve"),
   },
-  async handler({ reservationId }) {
-    const reservation = store.getReservation(reservationId);
+  async handler({ reservationId }, ctx) {
+    const reservation = store.getReservation(reservationId, ctx.userId);
     if (!reservation) return fail("NOT_FOUND", `Reservation ${reservationId} not found`);
     return ok({ reservation });
   },

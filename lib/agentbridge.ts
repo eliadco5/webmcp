@@ -1,13 +1,9 @@
-/**
- * AgentBridge SDK — developer-ergonomic wrapper over document.modelContext.
- * Adds: permission scopes, tags, output-schema, confirmation gates,
- *       domain event subscriptions, batch execution, and manifest generation.
- */
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { z } from "zod";
 import { installWebMCPPolyfill } from "./webmcp-polyfill";
 import type { StoreEvent } from "./store";
 import { auditLog } from "./auditlog";
+import type { OperationContext } from "./operations/types";
 
 export interface AgentBridgeRegistration {
   name: string;
@@ -17,7 +13,7 @@ export interface AgentBridgeRegistration {
   permission: "read" | "write";
   requiresConfirmation?: boolean;
   tags?: string[];
-  handler: (input: Record<string, unknown>) => Promise<unknown>;
+  handler: (input: Record<string, unknown>, ctx: OperationContext) => Promise<unknown>;
 }
 
 export type ConfirmationHandler = (
@@ -27,17 +23,20 @@ export type ConfirmationHandler = (
 
 export interface AgentBridgeOptions {
   onConfirmation?: ConfirmationHandler;
+  getUserId?: () => string | null;
 }
 
 export class AgentBridge {
   private registrations: AgentBridgeRegistration[] = [];
   private storeListeners: Array<() => void> = [];
   private confirmationHandler: ConfirmationHandler;
+  private getUserId: () => string | null;
 
   constructor(options: AgentBridgeOptions = {}) {
     installWebMCPPolyfill();
     this.confirmationHandler =
       options.onConfirmation ?? (() => Promise.resolve(true));
+    this.getUserId = options.getUserId ?? (() => null);
   }
 
   register(reg: AgentBridgeRegistration): void {
@@ -65,7 +64,14 @@ export class AgentBridge {
     const reg = this.registrations.find((r) => r.name === name);
     if (!reg) throw new Error(`Operation "${name}" not registered`);
 
-    // Input validation
+    const userId = this.getUserId();
+    if (!userId) {
+      return {
+        success: false,
+        error: { code: "UNAUTHENTICATED", message: "A valid user token is required." },
+      };
+    }
+
     const schema = z.object(reg.inputSchema);
     const parsed = schema.safeParse(input);
     if (!parsed.success) {
@@ -78,7 +84,6 @@ export class AgentBridge {
       };
     }
 
-    // Confirmation gate
     if (reg.requiresConfirmation) {
       const approved = await this.confirmationHandler(name, input);
       if (!approved) {
@@ -90,7 +95,8 @@ export class AgentBridge {
       }
     }
 
-    const result = await reg.handler(parsed.data as Record<string, unknown>);
+    const ctx: OperationContext = { userId };
+    const result = await reg.handler(parsed.data as Record<string, unknown>, ctx);
     const success = (result as { success?: boolean }).success !== false;
     auditLog.record(name, input, success, "ui");
     return result;
@@ -123,7 +129,7 @@ export class AgentBridge {
   context(): object {
     return {
       page: "booking",
-      authenticated: true,
+      authenticated: !!this.getUserId(),
       locale: "en-US",
     };
   }
@@ -132,7 +138,6 @@ export class AgentBridge {
     eventType: StoreEvent["type"],
     callback: (event: StoreEvent) => void
   ): () => void {
-    // Dynamically import the store to avoid importing it in SSR contexts
     let unsubscribe = () => {};
     import("./store").then(({ store }) => {
       unsubscribe = store.on((event) => {
