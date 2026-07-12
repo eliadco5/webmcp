@@ -8,6 +8,7 @@ export const listReservations = defineOperation({
   title: "List Reservations",
   description: "Return all current reservations.",
   permission: "read",
+  roles: ["customer", "support", "admin"],
   tags: ["booking", "reservation"],
   inputSchema: {},
   async handler(_input, ctx) {

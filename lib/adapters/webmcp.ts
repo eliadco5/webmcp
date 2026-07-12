@@ -20,6 +20,7 @@ export function initAgentBridge(options: AgentBridgeOptions = {}): AgentBridge {
       description: op.description,
       inputSchema: op.inputSchema,
       permission: op.permission,
+      roles: op.roles,
       requiresConfirmation: op.requiresConfirmation,
       tags: op.tags,
       handler: op.handler,

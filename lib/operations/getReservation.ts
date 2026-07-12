@@ -8,6 +8,7 @@ export const getReservation = defineOperation({
   title: "Get Reservation",
   description: "Look up a specific reservation by ID.",
   permission: "read",
+  roles: ["customer", "support", "admin"],
   tags: ["booking", "reservation"],
   inputSchema: {
     reservationId: z.string().describe("ID of the reservation to retrieve"),

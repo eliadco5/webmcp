@@ -77,7 +77,7 @@ export function LoginForm() {
       </form>
 
       <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 20 }}>
-        Demo accounts: <strong>alice / password</strong> · <strong>bob / password</strong>
+        <strong>alice</strong> (customer) · <strong>carol</strong> (support) · <strong>bob</strong> (admin) — all password: <strong>password</strong>
       </p>
     </div>
   );

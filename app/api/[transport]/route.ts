@@ -1,13 +1,23 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
-import { registerMcpTools } from "@/lib/adapters/mcp";
-import { userForToken } from "@/lib/auth";
+import { registerMcpTools, withMcpAuthRole } from "@/lib/adapters/mcp";
+import { userForToken, scopesForRole, MCP_RESOURCE } from "@/lib/auth";
+import type { Role } from "@/lib/auth";
+import { computeVersion } from "@/lib/capabilities";
+import { registry } from "@/lib/operations";
 
-const baseHandler = createMcpHandler(
+const GLOBAL_VERSION = computeVersion(registry);
+
+const mcpHandler = createMcpHandler(
   (server) => {
     registerMcpTools(server);
   },
-  {},
+  {
+    serverInfo: {
+      name: "agentbridge-booking",
+      version: GLOBAL_VERSION,
+    },
+  },
   {
     basePath: "/api",
     maxDuration: 60,
@@ -21,11 +31,25 @@ async function verifyToken(_req: Request, bearer?: string): Promise<AuthInfo | u
   return {
     token: bearer,
     clientId: user.id,
-    scopes: [],
-    extra: { userId: user.id },
+    scopes: scopesForRole(user.role),
+    extra: { userId: user.id, role: user.role },
   };
 }
 
-const handler = withMcpAuth(baseHandler, verifyToken, { required: true });
+// Correct wrapping order:
+// 1. withMcpAuthRole wraps mcpHandler — reads req.auth (set by step 2 before this is called)
+// 2. withMcpAuth wraps mcpHandlerWithRole — sets req.auth FIRST, then calls the inner handler
+// This guarantees req.auth.extra.role is available when roleContext.run() is called.
+function getRole(req: Request): Role | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (req as any).auth?.extra?.role as Role | undefined;
+}
+
+const mcpHandlerWithRole = withMcpAuthRole(mcpHandler, getRole);
+
+const handler = withMcpAuth(mcpHandlerWithRole, verifyToken, {
+  required: true,
+  resourceUrl: MCP_RESOURCE,
+});
 
 export { handler as GET, handler as POST, handler as DELETE };

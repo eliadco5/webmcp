@@ -7,6 +7,7 @@ export const getContext = defineOperation({
   title: "Get Context",
   description: "Return current application context: page name, auth status, locale.",
   permission: "read",
+  roles: ["customer", "support", "admin"],
   tags: ["context"],
   inputSchema: {},
   async handler(_input, ctx) {
