@@ -4,6 +4,8 @@ import { installWebMCPPolyfill } from "./webmcp-polyfill";
 import type { StoreEvent } from "./store";
 import { auditLog } from "./auditlog";
 import type { OperationContext } from "./operations/types";
+import type { Role } from "./auth";
+import { roleSatisfies } from "./auth";
 
 export interface AgentBridgeRegistration {
   name: string;
@@ -11,6 +13,7 @@ export interface AgentBridgeRegistration {
   description: string;
   inputSchema: z.ZodRawShape;
   permission: "read" | "write";
+  roles: Role[];
   requiresConfirmation?: boolean;
   tags?: string[];
   handler: (input: Record<string, unknown>, ctx: OperationContext) => Promise<unknown>;
@@ -24,6 +27,7 @@ export type ConfirmationHandler = (
 export interface AgentBridgeOptions {
   onConfirmation?: ConfirmationHandler;
   getUserId?: () => string | null;
+  getUserRole?: () => Role | null;
 }
 
 export class AgentBridge {
@@ -31,15 +35,21 @@ export class AgentBridge {
   private storeListeners: Array<() => void> = [];
   private confirmationHandler: ConfirmationHandler;
   private getUserId: () => string | null;
+  private getUserRole: () => Role | null;
 
   constructor(options: AgentBridgeOptions = {}) {
     installWebMCPPolyfill();
     this.confirmationHandler =
       options.onConfirmation ?? (() => Promise.resolve(true));
     this.getUserId = options.getUserId ?? (() => null);
+    this.getUserRole = options.getUserRole ?? (() => null);
   }
 
   register(reg: AgentBridgeRegistration): void {
+    const role = this.getUserRole();
+    // Skip registration if the caller's role is not permitted
+    if (role && !roleSatisfies(role, reg.roles)) return;
+
     this.registrations.push(reg);
 
     const jsonSchema = zodToJsonSchema(z.object(reg.inputSchema), {
@@ -65,10 +75,18 @@ export class AgentBridge {
     if (!reg) throw new Error(`Operation "${name}" not registered`);
 
     const userId = this.getUserId();
-    if (!userId) {
+    const role = this.getUserRole();
+    if (!userId || !role) {
       return {
         success: false,
         error: { code: "UNAUTHENTICATED", message: "A valid user token is required." },
+      };
+    }
+
+    if (!roleSatisfies(role, reg.roles)) {
+      return {
+        success: false,
+        error: { code: "FORBIDDEN", message: `Role '${role}' is not permitted to call '${name}'.` },
       };
     }
 
@@ -95,7 +113,7 @@ export class AgentBridge {
       }
     }
 
-    const ctx: OperationContext = { userId };
+    const ctx: OperationContext = { userId, role };
     const result = await reg.handler(parsed.data as Record<string, unknown>, ctx);
     const success = (result as { success?: boolean }).success !== false;
     auditLog.record(name, input, success, "ui");
@@ -117,6 +135,7 @@ export class AgentBridge {
         title: r.title,
         description: r.description,
         permission: r.permission,
+        roles: r.roles,
         tags: r.tags ?? [],
         requiresConfirmation: r.requiresConfirmation ?? false,
         inputSchema: zodToJsonSchema(z.object(r.inputSchema), {

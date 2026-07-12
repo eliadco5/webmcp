@@ -5,6 +5,7 @@ import { useBridge } from "@/app/providers";
 import { AvailabilityList } from "./AvailabilityList";
 import { ReservationList } from "./ReservationList";
 import { ActivityLog } from "./ActivityLog";
+import { UsersPanel } from "./UsersPanel";
 import type { Slot, Reservation } from "@/lib/store";
 
 function todayISO() {
@@ -48,6 +49,9 @@ export function BookingApp() {
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [cancelling, setCancelling] = useState<string | undefined>();
+  const [allReservations, setAllReservations] = useState<Reservation[]>([]);
+  const isPrivileged = user?.role === "support" || user?.role === "admin";
+  const isAdmin = user?.role === "admin";
 
   const refreshReservations = useCallback(async () => {
     const result = await call("listReservations") as { success: boolean; data?: { reservations: Reservation[] } };
@@ -59,6 +63,17 @@ export function BookingApp() {
   useEffect(() => {
     if (storeEvents.length > 0) refreshReservations();
   }, [storeEvents, refreshReservations]);
+
+  const refreshAllReservations = useCallback(async () => {
+    if (!isPrivileged) return;
+    const result = await call("listAllReservations") as { success: boolean; data?: { reservations: Reservation[] } };
+    if (result.success && result.data) setAllReservations(result.data.reservations);
+  }, [call, isPrivileged]);
+
+  useEffect(() => { refreshAllReservations(); }, [refreshAllReservations]);
+  useEffect(() => {
+    if (storeEvents.length > 0) refreshAllReservations();
+  }, [storeEvents, refreshAllReservations]);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -107,7 +122,7 @@ export function BookingApp() {
   }
 
   const mcpCommand = agentToken
-    ? `claude mcp add --transport http booking \\\n  http://localhost:3002/api/mcp \\\n  --header "Authorization: Bearer ${agentToken}"`
+    ? `claude mcp add --transport http booking \\\n  ${window.location.origin}/api/mcp \\\n  --header "Authorization: Bearer ${agentToken}"`
     : "";
 
   return (
@@ -124,6 +139,13 @@ export function BookingApp() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 13, color: "#374151" }}>
               Signed in as <strong>{user.displayName}</strong>
+            </span>
+            <span style={{
+              fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12,
+              background: user.role === "admin" ? "#fef3c7" : user.role === "support" ? "#ede9fe" : "#e0f2fe",
+              color: user.role === "admin" ? "#92400e" : user.role === "support" ? "#5b21b6" : "#0369a1",
+            }}>
+              {user.role}
             </span>
             <button
               type="button"
@@ -245,6 +267,53 @@ export function BookingApp() {
             <ActivityLog entries={auditEntries} />
           </div>
 
+          {/* Support/Admin: all reservations panel */}
+          {isPrivileged && (
+            <div className="card">
+              <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 4 }}>
+                All Reservations
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "#9ca3af" }}>
+                  ({user?.role})
+                </span>
+              </h2>
+              <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+                All bookings across all users.
+              </p>
+              {allReservations.length === 0 ? (
+                <p style={{ fontSize: 13, color: "#9ca3af" }}>No reservations yet.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {allReservations.map((r) => (
+                    <div key={r.id} style={{
+                      padding: "8px 12px", background: "#f9fafb", borderRadius: 6,
+                      fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center",
+                    }}>
+                      <span>
+                        <strong>{r.name}</strong> · {r.date} {r.time} · party of {r.partySize}
+                        <span style={{ marginLeft: 8, fontSize: 11, color: "#6b7280" }}>({r.userId})</span>
+                      </span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!confirm(`Cancel reservation ${r.id} for ${r.name}?`)) return;
+                            await call("cancelAnyReservation", { reservationId: r.id, confirm: true });
+                          }}
+                          style={{ fontSize: 11, padding: "2px 8px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: 4, cursor: "pointer" }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Admin: user management */}
+          {isAdmin && <UsersPanel />}
+
           {/* Agent connect card */}
           <div className="card" style={{ background: "#1e1b4b", color: "#e0e7ff" }}>
             <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Connect an AI Agent</h2>
@@ -278,7 +347,7 @@ export function BookingApp() {
 
             <p style={{ fontSize: 12, marginTop: 12, marginBottom: 8, color: "#a5b4fc" }}>MCP Inspector:</p>
             <pre style={{ background: "#312e81", borderRadius: 6, padding: 10, fontSize: 11, overflowX: "auto" }}>
-              {`npx @modelcontextprotocol/inspector \\\n  http://localhost:3002/api/mcp`}
+              {`npx @modelcontextprotocol/inspector \\\n  ${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/api/mcp`}
             </pre>
             <p style={{ fontSize: 11, color: "#818cf8", marginTop: 6 }}>
               Use the Authorization header with your token in the inspector.

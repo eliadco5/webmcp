@@ -10,6 +10,7 @@ export const cancelReservation = defineOperation({
     "Cancel an existing reservation by ID. This is a destructive action — confirmation is required. " +
     "When calling via MCP, you MUST pass confirm: true to acknowledge the cancellation.",
   permission: "write",
+  roles: ["customer", "support", "admin"],
   requiresConfirmation: true,
   tags: ["booking", "reservation"],
   inputSchema: {

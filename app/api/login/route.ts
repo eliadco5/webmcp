@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   return Response.json({
     success: true,
-    user: { id: user.id, username: user.username, displayName: user.displayName },
+    user: { id: user.id, username: user.username, displayName: user.displayName, role: user.role },
     agentToken,
   });
 }

@@ -10,6 +10,7 @@ export const searchAvailability = defineOperation({
   description:
     "Search available booking slots for a given date and party size. Returns a list of open time slots.",
   permission: "read",
+  roles: ["customer", "support", "admin"],
   tags: ["booking", "availability"],
   inputSchema: {
     date: z

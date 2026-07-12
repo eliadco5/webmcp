@@ -134,6 +134,26 @@ class BookingStore {
 
     return "ok";
   }
+
+  getAllReservations(): Reservation[] {
+    return [...this.reservations];
+  }
+
+  cancelReservationAsAdmin(id: string): "ok" | "not_found" {
+    const idx = this.reservations.findIndex((r) => r.id === id);
+    if (idx === -1) return "not_found";
+
+    const reservation = this.reservations[idx];
+    this.reservations.splice(idx, 1);
+
+    const slot = this.slots.find((s) => s.id === reservation.slotId);
+    if (slot) slot.available = true;
+
+    this.emit({ type: "reservation.cancelled", reservationId: id });
+    if (slot) this.emit({ type: "availability.changed", slotId: slot.id, available: true });
+
+    return "ok";
+  }
 }
 
 // Singleton — shared across server-side and client-side code (in-memory only)

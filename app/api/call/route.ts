@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { registry } from "@/lib/operations";
 import { auditLog } from "@/lib/auditlog";
-import { userForSession, SESSION_COOKIE } from "@/lib/auth";
+import { userForSession, roleSatisfies, SESSION_COOKIE } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -26,6 +26,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // RBAC: reject if user's role is not permitted for this operation
+  if (!roleSatisfies(user.role, op.roles)) {
+    return Response.json(
+      { success: false, error: { code: "FORBIDDEN", message: `Role '${user.role}' is not permitted to call '${op.name}'.` } },
+      { status: 403 }
+    );
+  }
+
   const schema = z.object(op.inputSchema);
   const parsed = schema.safeParse(params ?? {});
   if (!parsed.success) {
@@ -38,7 +46,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const result = await op.handler(parsed.data, { userId: user.id });
+  const result = await op.handler(parsed.data, { userId: user.id, role: user.role });
   const success = (result as { success?: boolean }).success !== false;
   auditLog.record(name, params ?? {}, success, "ui");
 
