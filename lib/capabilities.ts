@@ -17,7 +17,7 @@ function djb2(s: string): string {
 function opFingerprint(op: Operation<any, any>): string {
   const schemaKeys = Object.keys(op.inputSchema).sort().join(",");
   const roles = [...op.roles].sort().join(",");
-  return `${op.name}|${op.permission}|${roles}|${schemaKeys}`;
+  return `${op.name}|${op.permission}|${roles}|${schemaKeys}|${op.module ?? ""}|${op.parallelSafe ?? ""}`;
 }
 
 /** Compute a short version hash from a list of operations (sorted by name for stability). */

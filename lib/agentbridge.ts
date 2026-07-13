@@ -113,7 +113,7 @@ export class AgentBridge {
       }
     }
 
-    const ctx: OperationContext = { userId, role };
+    const ctx: OperationContext = { userId, role, token: "" };
     const result = await reg.handler(parsed.data as Record<string, unknown>, ctx);
     const success = (result as { success?: boolean }).success !== false;
     auditLog.record(name, input, success, "ui");

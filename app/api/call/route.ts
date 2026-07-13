@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const result = await op.handler(parsed.data, { userId: user.id, role: user.role });
+  const result = await op.handler(parsed.data, { userId: user.id, role: user.role, token: "" });
   const success = (result as { success?: boolean }).success !== false;
   auditLog.record(name, params ?? {}, success, "ui");
 

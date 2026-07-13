@@ -1,36 +1,58 @@
 import { AsyncLocalStorage } from "async_hooks";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { registry } from "@/lib/operations";
+import { registry } from "@/lib/operations/registry";
 import { auditLog } from "@/lib/auditlog";
 import { fail } from "@/lib/result";
 import { roleSatisfies } from "@/lib/auth";
+import { getLoaded } from "@/lib/loadedTools";
 import type { Role } from "@/lib/auth";
 
-// Per-request ALS holding the caller's role.
-// Populated by withMcpAuthRole() before the MCP handler runs;
-// readable during registerMcpTools() which runs inside the same async context.
-const roleContext = new AsyncLocalStorage<Role>();
-
-export function getRoleContext(): Role | undefined {
-  return roleContext.getStore();
+interface McpContext {
+  role: Role;
+  token: string;
 }
 
-/** Wrap an existing MCP handler so the caller's role is available in roleContext. */
+// Per-request ALS holding the caller's role and bearer token.
+// Populated by withMcpAuthRole() before the MCP handler runs.
+const mcpContext = new AsyncLocalStorage<McpContext>();
+
+export function getMcpContext(): McpContext | undefined {
+  return mcpContext.getStore();
+}
+
+// Back-compat: callers that only need role
+export function getRoleContext(): Role | undefined {
+  return mcpContext.getStore()?.role;
+}
+
+/** Wrap an existing MCP handler so role + token are available in mcpContext. */
 export function withMcpAuthRole(
   handler: (req: Request) => Promise<Response>,
-  getRole: (req: Request) => Role | undefined
+  getRole: (req: Request) => Role | undefined,
+  getToken: (req: Request) => string | undefined
 ): (req: Request) => Promise<Response> {
-  return (req: Request) =>
-    roleContext.run(getRole(req) ?? ("customer" as Role), () => handler(req));
+  return (req: Request) => {
+    const role = getRole(req) ?? ("customer" as Role);
+    const token = getToken(req) ?? "";
+    return mcpContext.run({ role, token }, () => handler(req));
+  };
 }
 
 export function registerMcpTools(server: McpServer) {
-  const callerRole: Role | undefined = roleContext.getStore();
+  const ctx = mcpContext.getStore();
+  const callerRole: Role = ctx?.role ?? "customer";
+  const token: string = ctx?.token ?? "";
+
+  // Determine which non-alwaysOn ops are currently loaded for this token
+  const loaded = getLoaded(token);
 
   for (const op of registry) {
-    // Skip registering tools the caller's role cannot use — gives a per-role tools/list
-    if (callerRole && !roleSatisfies(callerRole, op.roles)) continue;
+    // Role gate (applies to all ops)
+    if (!roleSatisfies(callerRole, op.roles)) continue;
+
+    // Non-alwaysOn ops are only registered if explicitly loaded
+    if (!op.alwaysOn && !loaded.has(op.name)) continue;
 
     const zodShape = op.inputSchema as Record<string, z.ZodTypeAny>;
 
@@ -60,7 +82,8 @@ export function registerMcpTools(server: McpServer) {
         }
 
         try {
-          const result = await op.handler(input, { userId, role });
+          const bearerToken: string = extra?.authInfo?.token ?? "";
+          const result = await op.handler(input, { userId, role, token: bearerToken });
           auditLog.record(op.name, input, result.success, "agent");
           if (result.success) {
             return { content: [{ type: "text" as const, text: JSON.stringify(result.data, null, 2) }] };

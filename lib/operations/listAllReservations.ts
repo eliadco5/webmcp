@@ -8,6 +8,7 @@ export const listAllReservations = defineOperation({
   description: "Return all reservations across all users. Available to support and admin roles only.",
   permission: "read",
   roles: ["support", "admin"],
+  module: "reservation.admin",
   tags: ["booking", "reservation", "admin"],
   inputSchema: {},
   async handler(_input, _ctx) {

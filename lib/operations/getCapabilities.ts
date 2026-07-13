@@ -1,6 +1,6 @@
 import { defineOperation } from "./types";
 import { ok } from "@/lib/result";
-import { registry } from "@/lib/operations/index";
+import { registry } from "./registry";
 import { capabilityManifest } from "@/lib/capabilities";
 
 export const getCapabilities = defineOperation({
@@ -11,6 +11,7 @@ export const getCapabilities = defineOperation({
     "An agent can compare the version to its cached value to detect when capabilities have changed.",
   permission: "read",
   roles: ["customer", "support", "admin"],
+  alwaysOn: true,
   tags: ["meta"],
   inputSchema: {},
   async handler(_input, ctx) {

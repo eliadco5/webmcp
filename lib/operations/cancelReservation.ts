@@ -12,6 +12,7 @@ export const cancelReservation = defineOperation({
   permission: "write",
   roles: ["customer", "support", "admin"],
   requiresConfirmation: true,
+  module: "reservation.booking",
   tags: ["booking", "reservation"],
   inputSchema: {
     reservationId: z.string().describe("ID of the reservation to cancel"),

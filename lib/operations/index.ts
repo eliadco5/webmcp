@@ -1,3 +1,4 @@
+import { registry } from "./registry";
 import { searchAvailability } from "./searchAvailability";
 import { createReservation } from "./createReservation";
 import { cancelReservation } from "./cancelReservation";
@@ -7,24 +8,36 @@ import { getContext } from "./getContext";
 import { listAllReservations } from "./listAllReservations";
 import { cancelAnyReservation } from "./cancelAnyReservation";
 import { getCapabilities } from "./getCapabilities";
-import type { Operation } from "./types";
+import { explore } from "./explore";
+import { describeTool } from "./describeTool";
+import { invoke } from "./invoke";
+import { loadTools } from "./loadTools";
+import { unloadTools } from "./unloadTools";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const registry: Operation<any, any>[] = [
+// Populate the shared registry array in place so all importers see the same contents.
+// Order: always-on navigation/meta tools first, then business ops.
+registry.push(
+  explore,
+  describeTool,
+  invoke,
+  loadTools,
+  unloadTools,
+  getContext,
+  getCapabilities,
   searchAvailability,
   createReservation,
   cancelReservation,
   listReservations,
   getReservation,
-  getContext,
   listAllReservations,
   cancelAnyReservation,
-  getCapabilities,
-];
+);
 
+export { registry };
 export {
   searchAvailability, createReservation, cancelReservation,
   listReservations, getReservation, getContext,
   listAllReservations, cancelAnyReservation, getCapabilities,
+  explore, describeTool, invoke, loadTools, unloadTools,
 };
 export type { Operation } from "./types";
