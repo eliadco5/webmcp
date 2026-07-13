@@ -10,6 +10,7 @@ export const createReservation = defineOperation({
     "Book a specific available slot. Requires a slotId from searchAvailability, the guest name, and party size.",
   permission: "write",
   roles: ["customer", "support", "admin"],
+  module: "reservation.booking",
   tags: ["booking", "reservation"],
   inputSchema: {
     slotId: z.string().describe("ID of the slot to book, from searchAvailability"),

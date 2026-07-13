@@ -45,7 +45,12 @@ function getRole(req: Request): Role | undefined {
   return (req as any).auth?.extra?.role as Role | undefined;
 }
 
-const mcpHandlerWithRole = withMcpAuthRole(mcpHandler, getRole);
+function getToken(req: Request): string | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (req as any).auth?.token as string | undefined;
+}
+
+const mcpHandlerWithRole = withMcpAuthRole(mcpHandler, getRole, getToken);
 
 const handler = withMcpAuth(mcpHandlerWithRole, verifyToken, {
   required: true,

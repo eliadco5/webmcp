@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Progressive Tool Disclosure — MCP Module Tree</title>
+<style>
+  :root {
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+
+    --blue:    #2a78d6;
+    --aqua:    #1baf7a;
+    --yellow:  #eda100;
+    --green:   #008300;
+    --violet:  #4a3aa7;
+    --red:     #e34948;
+    --magenta: #e87ba4;
+    --orange:  #eb6834;
+
+    --good:     #0ca30c;
+    --warning:  #fab219;
+    --critical: #d03b3b;
+
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+
+      --blue:    #3987e5;
+      --aqua:    #199e70;
+      --yellow:  #c98500;
+      --green:   #008300;
+      --violet:  #9085e9;
+      --red:     #e66767;
+      --magenta: #d55181;
+      --orange:  #d95926;
+
+      --good:     #0ca30c;
+      --warning:  #fab219;
+      --critical: #d03b3b;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- hero ---- */
+  header.hero {
+    padding: 72px 0 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--blue); margin: 0 0 14px;
+  }
+  h1 {
+    font-size: 42px; line-height: 1.1; margin: 0 0 16px; font-weight: 800;
+    letter-spacing: -0.02em; max-width: 20ch;
+  }
+  .lede { font-size: 18px; color: var(--text-secondary); max-width: 62ch; margin: 0; }
+
+  /* ---- section shell ---- */
+  section { padding: 56px 0; border-bottom: 1px solid var(--border); }
+  .sec-num {
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    color: var(--blue); letter-spacing: 0.05em;
+  }
+  h2 { font-size: 28px; margin: 8px 0 12px; font-weight: 800; letter-spacing: -0.01em; }
+  h3 { font-size: 17px; margin: 0 0 8px; font-weight: 700; }
+  p.body { font-size: 16px; color: var(--text-secondary); max-width: 66ch; }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+
+  code, .mono { font-family: var(--mono); font-size: 13.5px; }
+  .kbd {
+    font-family: var(--mono); font-size: 12.5px;
+    background: color-mix(in srgb, var(--blue) 12%, transparent);
+    color: var(--blue); padding: 2px 7px; border-radius: 5px; font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* ---- problem stat ---- */
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 8px; }
+  @media (max-width: 760px) { .stat-row { grid-template-columns: 1fr; } }
+  .stat { text-align: left; }
+  .stat .num {
+    font-size: 46px; font-weight: 800; letter-spacing: -0.02em; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .lbl { font-size: 13.5px; color: var(--text-secondary); margin-top: 8px; }
+  .num.blue { color: var(--blue); }
+  .num.orange { color: var(--orange); }
+  .num.critical { color: var(--critical); }
+
+  /* bar compare */
+  .bars { margin-top: 26px; }
+  .bar-line { display: flex; align-items: center; gap: 14px; margin: 12px 0; }
+  .bar-tag { width: 132px; font-size: 13.5px; font-weight: 600; flex: none; }
+  .bar-track { flex: 1; height: 26px; background: var(--grid); border-radius: 4px; position: relative; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 10px;
+              color: #fff; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar-fill.big { background: var(--critical); }
+  .bar-fill.small { background: var(--blue); }
+  .bar-cap { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; }
+
+  /* ---- tree ---- */
+  .tree {
+    font-family: var(--mono); font-size: 13.5px; line-height: 1.85;
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 22px 24px; overflow-x: auto; white-space: pre;
+    color: var(--text-secondary);
+  }
+  .tree .mod { color: var(--blue); font-weight: 700; }
+  .tree .sub { color: var(--violet); font-weight: 600; }
+  .tree .fn  { color: var(--text-primary); }
+  .tree .cmt { color: var(--text-muted); }
+  .tree .br  { color: var(--baseline); }
+
+  /* ---- flow / terminal ---- */
+  .term {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 0; overflow: hidden;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 11px 16px; border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term-title { font-size: 12.5px; color: var(--text-muted); margin-left: 8px; font-family: var(--mono); }
+  .term-body { padding: 18px 20px; font-family: var(--mono); font-size: 13px; line-height: 1.9; overflow-x: auto; }
+  .term-body .in  { color: var(--text-primary); }
+  .term-body .arr { color: var(--aqua); }
+  .term-body .out { color: var(--text-secondary); }
+  .term-body .cm  { color: var(--text-muted); }
+  .prompt { color: var(--blue); font-weight: 700; }
+
+  /* ---- comparison A/B ---- */
+  .ab { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .ab { grid-template-columns: 1fr; } }
+  .ab .card { border-top: 4px solid var(--baseline); }
+  .ab .card.a { border-top-color: var(--violet); }
+  .ab .card.b { border-top-color: var(--aqua); }
+  .badge {
+    display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 20px; margin-bottom: 10px;
+  }
+  .badge.a { background: color-mix(in srgb, var(--violet) 15%, transparent); color: var(--violet); }
+  .badge.b { background: color-mix(in srgb, var(--aqua) 18%, transparent); color: var(--aqua); }
+  .feat { list-style: none; padding: 0; margin: 14px 0 0; }
+  .feat li { font-size: 14px; padding: 7px 0 7px 26px; position: relative; color: var(--text-secondary); border-top: 1px solid var(--border); }
+  .feat li:first-child { border-top: none; }
+  .feat li::before {
+    position: absolute; left: 0; top: 7px; font-weight: 800; font-size: 14px;
+  }
+  .feat li.yes::before { content: "✓"; color: var(--good); }
+  .feat li.no::before  { content: "✕"; color: var(--critical); }
+
+  /* comparison table */
+  table.cmp { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+  table.cmp th, table.cmp td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.cmp thead th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  table.cmp th.rowh { font-weight: 600; color: var(--text-primary); width: 34%; }
+  table.cmp .a-col { color: var(--text-secondary); }
+  table.cmp .b-col { color: var(--text-secondary); }
+  table.cmp thead .a-col { color: var(--violet); font-weight: 700; }
+  table.cmp thead .b-col { color: var(--aqua); font-weight: 700; }
+
+  /* ---- parallel diagram ---- */
+  .lane { display: grid; grid-template-columns: 120px 1fr; gap: 14px; align-items: center; margin: 10px 0; }
+  .lane-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+    padding: 8px 12px; border-radius: 7px; border: 1px solid var(--border);
+  }
+  .chip.par { background: color-mix(in srgb, var(--aqua) 12%, transparent); color: var(--aqua); }
+  .chip.seq { background: color-mix(in srgb, var(--orange) 12%, transparent); color: var(--orange); }
+  .lane-track { display: flex; gap: 10px; flex-wrap: wrap; }
+  .chip .tag { font-size: 10.5px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* workflow steps */
+  .steps { counter-reset: step; margin-top: 10px; }
+  .step { display: grid; grid-template-columns: 34px 1fr; gap: 16px; padding: 14px 0; border-top: 1px solid var(--border); }
+  .step:first-child { border-top: none; }
+  .step .n {
+    counter-increment: step; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--blue); color: #fff; font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums;
+  }
+  .step.exec .n { background: var(--aqua); }
+  .step .what { font-size: 15px; }
+  .step .what .op { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text-primary); }
+  .step .branch { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .step .branch b { color: var(--violet); font-weight: 700; }
+
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin: 18px 0 0; font-size: 13px; color: var(--text-secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 13px; height: 13px; border-radius: 3px; flex: none; }
+
+  .note {
+    font-size: 13.5px; color: var(--text-secondary);
+    border-left: 3px solid var(--warning); padding: 10px 0 10px 16px; margin-top: 18px;
+    background: color-mix(in srgb, var(--warning) 7%, transparent);
+    border-radius: 0 6px 6px 0;
+  }
+  .note b { color: var(--text-primary); }
+
+  footer { padding: 40px 0 64px; color: var(--text-muted); font-size: 13px; }
+  .pill-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .pill { font-size: 12.5px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 20px; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">MCP Server Design · AgentBridge</p>
+    <h1>Progressive Tool Disclosure via a Navigable Module Tree</h1>
+    <p class="lede">
+      How an AI agent explores a platform with thousands of functions — without ever loading
+      thousands of tool schemas into its context window.
+    </p>
+  </div>
+</header>
+
+<!-- 1 · THE PROBLEM -->
+<section>
+  <div class="wrap">
+    <span class="sec-num">01 / PROBLEM</span>
+    <h2>2500 tools would blow the context window</h2>
+    <p class="body">
+      MCP normally advertises every tool in one flat <code>tools/list</code> response.
+      That is fine for a demo with 9 tools. The target is a platform with ~50 modules ×
+      ~50 functions — and dumping all of their schemas into the agent's context defeats
+      the entire purpose.
+    </p>
+
+    <div class="stat-row" style="margin-top:28px;">
+      <div class="stat">
+        <div class="num critical">2,500</div>
+        <div class="lbl">operations at full scale (50 modules × 50 functions)</div>
+      </div>
+      <div class="stat">
+        <div class="num orange">1 list</div>
+        <div class="lbl">every schema pushed to the agent up front, whether used or not</div>
+      </div>
+      <div class="stat">
+        <div class="num blue">~5</div>
+        <div class="lbl">tools actually needed with progressive disclosure</div>
+      </div>
+    </div>
+
+    <div class="bars">
+      <div class="bar-line">
+        <div class="bar-tag">Flat tools/list</div>
+        <div class="bar-track"><div class="bar-fill big" style="width:100%;">2,500 schemas loaded</div></div>
+      </div>
+      <div class="bar-line">
+        <div class="bar-tag">Progressive</div>
+        <div class="bar-track"><div class="bar-fill small" style="width:4%;">5</div></div>
+      </div>
+      <div class="bar-cap">Tools present in <code>tools/list</code> at connection time — lower is better.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 · THE TREE -->
+<section>
+  <div class="wrap">
+    <span class="sec-num">02 / NAVIGATION</span>
+    <h2>A recursive tree the agent walks on demand</h2>
+    <p class="body">
+      Every node returns the same shape — <code>{ description, submodules[], functions[] }</code> —
+      so the agent recurses the same way at any depth. A node can hold sub-modules
+      <em>and</em> functions; a leaf simply has no sub-modules. The root
+      <span class="kbd">tools/list</span> stays tiny no matter how deep the tree grows.
+    </p>
+
+    <div class="tree" role="img" aria-label="Module tree: platform contains reservation, crm and task modules; reservation contains availability, booking, search and admin sub-modules, each holding functions.">
+<span class="cmt">Platform: "Acme Ops — reservations, CRM & task management"</span>
+<span class="br">│</span>
+<span class="br">├──</span> <span class="mod">reservation</span>              <span class="cmt">Create & manage table reservations</span>
+<span class="br">│   ├──</span> <span class="sub">availability</span>       <span class="cmt">Find open slots</span>
+<span class="br">│   │   └</span> <span class="fn">searchAvailability(date, partySize)</span>
+<span class="br">│   ├──</span> <span class="sub">booking</span>            <span class="cmt">Create / modify bookings</span>
+<span class="br">│   │   ├</span> <span class="fn">createReservation(slotId, name, size)</span>
+<span class="br">│   │   └</span> <span class="fn">cancelReservation(reservationId)</span>
+<span class="br">│   ├──</span> <span class="sub">search</span>             <span class="cmt">Look up existing bookings</span>
+<span class="br">│   │   ├</span> <span class="fn">listReservations()</span>
+<span class="br">│   │   └</span> <span class="fn">getReservation(reservationId)</span>
+<span class="br">│   └──</span> <span class="sub">admin</span>              <span class="cmt">Cross-user (support / admin)</span>
+<span class="br">│       ├</span> <span class="fn">listAllReservations()</span>
+<span class="br">│       └</span> <span class="fn">cancelAnyReservation(reservationId)</span>
+<span class="br">├──</span> <span class="mod">crm</span>                      <span class="cmt">Customer records …</span>
+<span class="br">└──</span> <span class="mod">task</span>                     <span class="cmt">Task tracking …</span>
+    </div>
+
+    <div class="grid-2" style="margin-top:20px;">
+      <div class="card">
+        <h3>Bulk explore</h3>
+        <p class="body" style="margin:0;">
+          <code>explore(["reservation.availability", "reservation.search"])</code> —
+          fetch several nodes in one round-trip instead of walking them one by one.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Wildcard explore</h3>
+        <p class="body" style="margin:0;">
+          <code>explore("reservation.*")</code> expands a whole subtree; <code>explore("*")</code>
+          returns the entire tree — flattened descendants in a single response.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · TWO EXECUTION PATHS -->
+<section>
+  <div class="wrap">
+    <span class="sec-num">03 / EXECUTION</span>
+    <h2>Two ways to run a function — the agent chooses</h2>
+    <p class="body">
+      Navigation is shared. The only fork is <em>how a discovered function gets executed</em>.
+      Both paths are supported; the agent picks per situation.
+    </p>
+
+    <div class="ab" style="margin-top:24px;">
+      <div class="card b">
+        <span class="badge b">Path B · invoke</span>
+        <h3>Stateless dispatcher — the default</h3>
+        <p class="body" style="margin:0 0 4px;">
+          One universal <code>invoke(name, args)</code> tool runs any function by name.
+          The function never enters <code>tools/list</code>; the server validates args
+          against its Zod schema and executes.
+        </p>
+        <ul class="feat">
+          <li class="yes">No server-side state — fully stateless</li>
+          <li class="yes"><code>tools/list</code> stays tiny forever</li>
+          <li class="yes">Client fully controls what it keeps in context</li>
+          <li class="no">No native per-function schema in the client</li>
+        </ul>
+      </div>
+
+      <div class="card a">
+        <span class="badge a">Path A · load_tools</span>
+        <h3>Native promotion — for repeated use</h3>
+        <p class="body" style="margin:0 0 4px;">
+          <code>load_tools([...])</code> promotes selected functions to <em>real</em> MCP
+          tools with full schemas. Backed by a per-token selection store, re-read on
+          every request.
+        </p>
+        <ul class="feat">
+          <li class="yes">Native tools — client-side schema validation</li>
+          <li class="yes">Ideal when calling the same fns repeatedly</li>
+          <li class="no">Needs a server-side selection store (per token)</li>
+          <li class="no">Two-step refresh: load → re-list</li>
+        </ul>
+      </div>
+    </div>
+
+    <table class="cmp">
+      <thead>
+        <tr><th class="rowh">Dimension</th><th class="b-col">B · invoke</th><th class="a-col">A · load_tools</th></tr>
+      </thead>
+      <tbody>
+        <tr><th class="rowh">Function becomes…</th><td class="b-col">an argument to one <code>invoke</code> tool</td><td class="a-col">a real, native MCP tool</td></tr>
+        <tr><th class="rowh">Server-side state</th><td class="b-col">none (stateless)</td><td class="a-col">required — per-token store</td></tr>
+        <tr><th class="rowh">tools/list size</th><td class="b-col">fixed &amp; tiny</td><td class="a-col">grows with loaded tools</td></tr>
+        <tr><th class="rowh">Refresh mechanism</th><td class="b-col">none needed</td><td class="a-col">load, then re-list</td></tr>
+        <tr><th class="rowh">Arg validation</th><td class="b-col">server-side, inside invoke</td><td class="a-col">native, client-side</td></tr>
+        <tr><th class="rowh">Best when…</th><td class="b-col">one-off / exploratory calls</td><td class="a-col">repeated calls this session</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <b>Why the store is unavoidable for Path A:</b> the transport is stateless — a fresh
+      MCP server is built on every request. For a loaded function to reappear in the next
+      <code>tools/list</code>, the selection must be persisted server-side (keyed by bearer
+      token) and re-read while the tool set is rebuilt. Path B avoids this entirely.
+    </div>
+  </div>
+</section>
+
+<!-- 4 · BULK INVOKE + PARALLEL SAFETY -->
+<section>
+  <div class="wrap">
+    <span class="sec-num">04 / BULK INVOKE</span>
+    <h2>Batch calls with per-operation parallel-safety</h2>
+    <p class="body">
+      Every operation declares <code>parallelSafe</code> (defaulting to <code>true</code> for
+      reads, <code>false</code> for writes). A bulk <code>invoke([...])</code> runs the
+      parallel-safe calls concurrently and everything else in submission order — one
+      round-trip, correct ordering guaranteed.
+    </p>
+
+    <div class="card" style="margin-top:22px;">
+      <div class="lane">
+        <div class="lane-label">Parallel-safe<br>(run together)</div>
+        <div class="lane-track">
+          <span class="chip par"><span class="tag">read</span> searchAvailability</span>
+          <span class="chip par"><span class="tag">read</span> listReservations</span>
+          <span class="chip par"><span class="tag">read</span> getReservation</span>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-label">Sequential<br>(in order)</div>
+        <div class="lane-track">
+          <span class="chip seq"><span class="tag">write</span> createReservation</span>
+          <span class="chip seq"><span class="tag">write</span> cancelReservation</span>
+        </div>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--aqua);"></span> Parallel-safe — resolved with <code>Promise.all</code></span>
+        <span><span class="swatch" style="background:var(--orange);"></span> Order-sensitive — awaited one by one</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Not in v1:</b> dependent / chained calls (where step 2 needs step 1's result via a
+      <code>$1.field</code> reference syntax). The agent sequences those itself — one extra
+      round-trip keeps the server simple.
+    </div>
+  </div>
+</section>
+
+<!-- 5 · WORKFLOW -->
+<section>
+  <div class="wrap">
+    <span class="sec-num">05 / WORKFLOW</span>
+    <h2>A real booking spans three branches</h2>
+    <p class="body">
+      The agent gathers functions from different parts of the tree —
+      <b>availability</b>, <b>booking</b>, and <b>search</b> — then executes. Navigation is
+      cheap (descriptions only); execution touches just the functions it chose.
+    </p>
+
+    <div class="grid-2" style="margin-top:22px; align-items:start;">
+      <div class="card">
+        <h3 style="margin-bottom:14px;">Navigate &amp; execute</h3>
+        <div class="steps">
+          <div class="step"><div class="n"></div><div><div class="what"><span class="op">explore()</span></div><div class="branch">sees the <b>reservation</b> module</div></div></div>
+          <div class="step"><div class="n"></div><div><div class="what"><span class="op">explore("reservation.*")</span></div><div class="branch">availability · booking · search · admin</div></div></div>
+          <div class="step exec"><div class="n"></div><div><div class="what"><span class="op">searchAvailability(date, 4)</span> → slot_42</div><div class="branch">from <b>reservation.availability</b></div></div></div>
+          <div class="step exec"><div class="n"></div><div><div class="what"><span class="op">createReservation(slot_42, …)</span> → booking_99</div><div class="branch">from <b>reservation.booking</b></div></div></div>
+          <div class="step exec"><div class="n"></div><div><div class="what"><span class="op">listReservations()</span> → validates booking_99 ✓</div><div class="branch">from <b>reservation.search</b> — a different branch</div></div></div>
+        </div>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--blue);"></span> Navigate</span>
+          <span><span class="swatch" style="background:var(--aqua);"></span> Execute</span>
+        </div>
+      </div>
+
+      <div class="term" aria-label="Terminal transcript of the booking workflow">
+        <div class="term-bar">
+          <span class="dot" style="background:var(--critical);"></span>
+          <span class="dot" style="background:var(--warning);"></span>
+          <span class="dot" style="background:var(--good);"></span>
+          <span class="term-title">agent ⇄ mcp</span>
+        </div>
+        <div class="term-body">
+<span class="prompt">▸</span> <span class="in">explore()</span>
+  <span class="arr">→</span> <span class="out">app + [reservation, crm, task]</span>
+
+<span class="prompt">▸</span> <span class="in">explore("reservation.*")</span>
+  <span class="arr">→</span> <span class="out">availability · booking · search</span>
+
+<span class="cm"># gathered 3 fns from 2 branches</span>
+
+<span class="prompt">▸</span> <span class="in">invoke("searchAvailability",</span>
+<span class="in">         {date, partySize:4})</span>
+  <span class="arr">→</span> <span class="out">{ slotId: "slot_42" }</span>
+
+<span class="prompt">▸</span> <span class="in">invoke("createReservation",</span>
+<span class="in">         {slotId:"slot_42", …})</span>
+  <span class="arr">→</span> <span class="out">{ id: "booking_99" }</span>
+
+<span class="prompt">▸</span> <span class="in">invoke("listReservations", {})</span>
+  <span class="arr">→</span> <span class="out">[ booking_99 ]  ✓ validated</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      Under <b>Path A</b>, the agent would first <code>load_tools([...])</code> and then call
+      each function natively. Under <b>Path B</b> (shown) it calls <code>invoke(...)</code>
+      directly. The navigation and the tree are identical either way.
+    </div>
+  </div>
+</section>
+
+<!-- 6 · THE 5 ROOT TOOLS -->
+<section style="border-bottom:none;">
+  <div class="wrap">
+    <span class="sec-num">06 / SURFACE</span>
+    <h2>Everything runs on five always-on tools</h2>
+    <p class="body">
+      Regardless of whether the platform exposes 9 or 2,500 operations, this is the entire
+      root surface the agent ever sees at connection time.
+    </p>
+    <div class="pill-row" style="margin-top:20px;">
+      <span class="pill"><b style="color:var(--blue);">explore</b> — walk the tree (bulk + wildcard)</span>
+      <span class="pill"><b style="color:var(--blue);">describe_tool</b> — full schema for a function</span>
+      <span class="pill"><b style="color:var(--aqua);">invoke</b> — run a function statelessly</span>
+      <span class="pill"><b style="color:var(--violet);">load_tools</b> — promote to native tools</span>
+      <span class="pill"><b style="color:var(--violet);">unload_tools</b> — remove native tools</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Design reference: <code>progressive tool disclosure via a navigable module tree</code> ·
+    AgentBridge MCP server · explanatory infographic
+  </div>
+</footer>
+
+</body>
+</html>
