@@ -143,6 +143,62 @@ export function expandWildcard(pattern: string, role: Role, ops: Operation<any, 
     }));
 }
 
+export function globToRegExp(pattern: string): RegExp {
+  // No slash: match against the function name (last segment) at any depth
+  if (!pattern.includes("/")) {
+    if (!/[*?]/.test(pattern)) {
+      pattern = `**/*${pattern}*`; // bare keyword → **/*keyword*
+    } else {
+      pattern = `**/${pattern}`;   // e.g. *refund* → **/*refund*
+    }
+  }
+  const segments = pattern.split("/");
+  const parts: string[] = [];
+  for (const seg of segments) {
+    if (seg === "**") {
+      parts.push(".*");
+    } else {
+      // Escape regex metachars except * and ?, which we handle ourselves
+      const escaped = seg.replace(/[.+^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*/g, "[^/]*")
+        .replace(/\?/g, "[^/]");
+      parts.push(escaped);
+    }
+  }
+  // When ** appears it already matches zero or more path segments including slashes,
+  // so join with "/" but collapse any ".*/" or "/.*" boundary artifacts.
+  const joined = parts.join("/")
+    .replace(/\/\.\*\//g, "(?:/.*)?/")   // mid-path **
+    .replace(/^\.\*\//,  "(?:.*/)?")     // leading **
+    .replace(/\/\.\*$/, "(?:/.*)?");     // trailing **
+  return new RegExp(`^${joined}$`, "i");
+}
+
+export interface SearchResult {
+  functions: (FnSummary & { module: string; path: string })[];
+  modules: ModuleNode[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function searchTree(pattern: string, role: Role, ops: Operation<any, any>[]): SearchResult {
+  const re = globToRegExp(pattern);
+
+  const functions = ops
+    .filter((op) => !op.alwaysOn && op.module && roleSatisfies(role, op.roles))
+    .filter((op) => re.test(`${op.module!.replace(/\./g, "/")}/${op.name}`))
+    .map((op) => ({
+      ...fnSummary(op),
+      module: op.module!,
+      path: `${op.module!.replace(/\./g, "/")}/${op.name}`,
+    }));
+
+  const modules = MODULE_DEFS
+    .filter((m) => re.test(m.path.replace(/\./g, "/")))
+    .filter((m) => ops.some((op) => op.module && isChildOf(op.module, m.path) && !op.alwaysOn && roleSatisfies(role, op.roles)));
+
+  return { functions, modules };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function platformManifest(role: Role, ops: Operation<any, any>[]): PlatformManifest {
   const visible = topLevelModules().filter((m) =>

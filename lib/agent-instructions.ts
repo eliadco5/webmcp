@@ -19,6 +19,7 @@ This prevents chatty back-and-forth: gather first, act once.
 ## Navigation
 - explore() with no args → platform overview.
 - explore("module.path") → sub-modules and available functions.
+- search("**/*x*") → find functions/modules by path glob, anywhere in the tree (use when you know *what* but not *where*).
 - describe_tool(name) → full input schema before invoking.
 - invoke({ name, args }) → call any function without loading it first.
 

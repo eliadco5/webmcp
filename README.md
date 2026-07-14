@@ -131,7 +131,8 @@ The agent sees none of steps 1–3. It sends one `book()` call and receives a va
 
 | Name | Description |
 |---|---|
-| `explore` | Navigate the platform module tree to discover functions |
+| `explore` | Navigate the platform module tree by known path |
+| `search` | Find functions/modules by Linux-style path glob, anywhere in the tree |
 | `describe_tool` | Get full input schema for a named function |
 | `invoke` | Call any function once without loading it (single or batch) |
 | `load_tools` | Promote functions to native MCP tools for the session |
@@ -232,6 +233,10 @@ await document.modelContext.executeTool("book", {
   name: "Alice"
 })
 // → { success: true, data: { reservation: {...}, validated: true } }
+
+// Search across the whole tree by glob — no need to know which module
+await document.modelContext.executeTool("search", { pattern: "**/*reservation*" })
+// → { functions: [{ name, module, permission, … }], modules: [{ path, title }] }
 
 // Or use the AgentBridge SDK (higher-level)
 agentBridge.describe()
@@ -395,6 +400,59 @@ Cost: **~385 tokens** cumulative (all three explore calls). The agent now knows 
 ```
 
 You can describe multiple tools in one call: `describe_tool({ name: ["searchAvailability", "createReservation"] })`.
+
+### Search — find by pattern, not by location
+
+`explore()` is navigation: you walk a path you already know (`reservation.booking`).
+`search()` is discovery: you describe *what* you're looking for and get every matching
+function and module back — no guessing which part of the tree holds it.
+
+Patterns are Linux-style globs matched against `module/path/functionName` strings:
+- `*` — any characters within one path segment
+- `**` — any number of segments (any depth)
+- `?` — exactly one character
+- A bare keyword (no metachar, no `/`) is auto-expanded to `**/*keyword*`
+
+```json
+// "Give me everything related to reservations"
+search({ "pattern": "**/*reservation*" })
+// → {
+//     "functions": [
+//       { "name": "createReservation", "module": "reservation.booking",      "permission": "write", … },
+//       { "name": "cancelReservation", "module": "reservation.booking",      "permission": "write", … },
+//       { "name": "searchAvailability","module": "reservation.availability", "permission": "read",  … },
+//       { "name": "listReservations",  "module": "reservation.search",       "permission": "read",  … },
+//       { "name": "getReservation",    "module": "reservation.search",       "permission": "read",  … }
+//     ],
+//     "modules": [
+//       { "path": "reservation",              "title": "Reservation" },
+//       { "path": "reservation.availability", "title": "Availability" },
+//       { "path": "reservation.booking",      "title": "Booking" },
+//       …
+//     ]
+//   }
+
+// Bare keyword — identical result (auto-expanded to **/*reservation*)
+search({ "pattern": "reservation" })
+
+// Scoped to a top-level domain
+search({ "pattern": "finance/**" })
+
+// Single function by name fragment
+search({ "pattern": "*refund*" })
+// → { functions: [{ name: "issueRefund", module: "finance.adjustments", … }], modules: [] }
+```
+
+Search is role-scoped: a `customer` token running `search({ pattern: "finance/**" })`
+returns nothing — finance is admin-only and the results are filtered by the caller's role.
+
+Search works identically on the in-page WebMCP surface:
+```javascript
+await document.modelContext.executeTool("search", { pattern: "**/*reservation*" })
+```
+
+Use `search()` to orient yourself quickly, then follow up with `explore("module.path")`
+for sub-module detail or `describe_tool(name)` for full input schemas.
 
 ### Path A — load tools for the session
 

@@ -9,6 +9,7 @@ import { listAllReservations } from "./listAllReservations";
 import { cancelAnyReservation } from "./cancelAnyReservation";
 import { getCapabilities } from "./getCapabilities";
 import { explore } from "./explore";
+import { search } from "./search";
 import { describeTool } from "./describeTool";
 import { invoke } from "./invoke";
 import { loadTools } from "./loadTools";
@@ -58,7 +59,7 @@ import { logManualAdjustment } from "./logManualAdjustment";
 
 registry.push(
   // Always-on navigation & meta
-  explore, describeTool, invoke, loadTools, unloadTools, getContext, getCapabilities,
+  explore, search, describeTool, invoke, loadTools, unloadTools, getContext, getCapabilities,
   // Reservation
   searchAvailability, createReservation, cancelReservation,
   listReservations, getReservation, listAllReservations, cancelAnyReservation,
