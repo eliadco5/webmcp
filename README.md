@@ -546,6 +546,48 @@ Then set `module: "crm.guests"` on each operation that belongs there. The tree b
 
 ---
 
+## Agent instructions (upfront information gathering)
+
+Without explicit instructions, agents tend to ask one question at a time — a chatty sequential Q&A that wastes tokens and adds unnecessary round-trips before any work begins. The instructions feature solves this by delivering a behavioural contract to every agent at connect time, so they gather everything they need in one pass.
+
+### How it works
+
+Both surfaces share a single source of truth in `lib/agent-instructions.ts`. Each surface delivers the string via its own connect-time mechanism:
+
+| Surface | Delivery mechanism | When the agent receives it |
+|---|---|---|
+| **MCP HTTP** | `initialize` handshake response (`result.instructions`) | Automatically at connect — no agent code needed |
+| **WebMCP in-page** | `document.modelContext.instructions` | Readable by browser agents after page load |
+
+```typescript
+// MCP HTTP — received automatically at connect, no agent code needed
+// lib/agent-instructions.ts → app/api/[transport]/route.ts → initialize.instructions
+
+// WebMCP in-page — readable by browser agents
+document.modelContext.instructions  // → string with behavioral rules
+```
+
+Both `app/api/[transport]/route.ts` (via `serverOptions.instructions`) and `lib/adapters/webmcp.ts` (via `initAgentBridge`) import from `lib/agent-instructions.ts`.
+
+### What the instructions enforce
+
+- Call `explore()` and/or `search()` first to discover all required parameters
+- Identify every missing value in one pass before surfacing anything to the user
+- Ask for ALL missing information in a single message — never sequential one-at-a-time questions
+- Only execute write operations after all parameters are confirmed
+
+### How to customise
+
+Edit `lib/agent-instructions.ts` — the change flows automatically to both surfaces.
+
+For the in-page surface you can also override per-bridge via `AgentBridgeOptions.instructions`:
+
+```typescript
+initAgentBridge({ instructions: "Your custom instructions here." });
+```
+
+---
+
 ## Benchmark
 
 Run a live comparison of the 3-call MCP approach vs the composite `book()` tool:
