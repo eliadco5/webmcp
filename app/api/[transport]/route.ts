@@ -5,6 +5,7 @@ import { userForToken, scopesForRole, MCP_RESOURCE } from "@/lib/auth";
 import type { Role } from "@/lib/auth";
 import { computeVersion } from "@/lib/capabilities";
 import { registry } from "@/lib/operations";
+import { AGENT_INSTRUCTIONS } from "@/lib/agent-instructions";
 
 const GLOBAL_VERSION = computeVersion(registry);
 
@@ -17,6 +18,7 @@ const mcpHandler = createMcpHandler(
       name: "agentbridge-booking",
       version: GLOBAL_VERSION,
     },
+    instructions: AGENT_INSTRUCTIONS,
   },
   {
     basePath: "/api",

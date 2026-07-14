@@ -32,6 +32,8 @@ export interface ToolChangeEvent extends Event {
 class ModelContextImpl extends EventTarget {
   private tools: Map<string, ModelContextTool> = new Map();
   ontoolchange: ((event: ToolChangeEvent) => void) | null = null;
+  /** AgentBridge extension — not part of the WebMCP spec. Behavioral instructions for in-page agents. */
+  instructions: string | null = null;
 
   async registerTool(
     tool: ModelContextTool,

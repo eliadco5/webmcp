@@ -1,5 +1,6 @@
 import { AgentBridge, type AgentBridgeOptions } from "@/lib/agentbridge";
 import { registry } from "@/lib/operations";
+import { AGENT_INSTRUCTIONS } from "@/lib/agent-instructions";
 
 let _bridge: AgentBridge | null = null;
 
@@ -11,7 +12,7 @@ let _bridge: AgentBridge | null = null;
 export function initAgentBridge(options: AgentBridgeOptions = {}): AgentBridge {
   if (_bridge) return _bridge;
 
-  _bridge = new AgentBridge(options);
+  _bridge = new AgentBridge({ instructions: AGENT_INSTRUCTIONS, ...options });
 
   for (const op of registry) {
     _bridge.register({

@@ -28,6 +28,8 @@ export interface AgentBridgeOptions {
   onConfirmation?: ConfirmationHandler;
   getUserId?: () => string | null;
   getUserRole?: () => Role | null;
+  /** Behavioral instructions exposed on document.modelContext.instructions for in-page agents. */
+  instructions?: string;
 }
 
 export class AgentBridge {
@@ -43,6 +45,9 @@ export class AgentBridge {
       options.onConfirmation ?? (() => Promise.resolve(true));
     this.getUserId = options.getUserId ?? (() => null);
     this.getUserRole = options.getUserRole ?? (() => null);
+    if (options.instructions !== undefined) {
+      document.modelContext.instructions = options.instructions;
+    }
   }
 
   register(reg: AgentBridgeRegistration): void {
