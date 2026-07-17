@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NavMCP · NavWebMCP — Token Cost Comparison</title>
+  <style>
+    :root {
+      --surface-1:  #1a1a19;
+      --surface-2:  #222220;
+      --surface-3:  #2c2c2a;
+      --text-pri:   #ffffff;
+      --text-sec:   #c3c2b7;
+      --text-mute:  #898781;
+      --blue:       #3987e5;
+      --aqua:       #199e70;
+      --violet:     #9085e9;
+      --yellow:     #c98500;
+      --good:       #0ca30c;
+      --critical:   #d03b3b;
+      --grid:       #2c2c2a;
+      --border:     rgba(255,255,255,0.09);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { background: var(--surface-1); }
+
+    body {
+      background: var(--surface-1);
+      color: var(--text-pri);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 28px 36px;
+    }
+
+    /* ── Header ── */
+    .hdr { text-align: center; margin-bottom: 30px; }
+    .hdr h1 {
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text-pri);
+      margin-bottom: 5px;
+    }
+    .hdr h1 em { font-style: normal; color: var(--blue); }
+    .hdr p { font-size: 13px; color: var(--text-mute); }
+
+    /* ── Panel grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      width: 100%;
+      max-width: 840px;
+    }
+
+    .panel {
+      background: var(--surface-2);
+      border: 1px solid var(--grid);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* panel header bar */
+    .ph {
+      padding: 11px 15px;
+      border-bottom: 1px solid var(--grid);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .ph-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .left .ph-dot  { background: var(--critical); }
+    .right .ph-dot { background: var(--good); }
+    .ph-label {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .left .ph-label  { color: var(--critical); }
+    .right .ph-label { color: var(--good); }
+
+    /* call count badge */
+    .call-count {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--text-mute);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Code body ── */
+    .pb {
+      padding: 15px 16px;
+      font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+      font-size: 11.5px;
+      line-height: 1.65;
+      flex: 1;
+    }
+
+    .blk {
+      margin-bottom: 9px;
+      opacity: 0;
+    }
+
+    /* syntax */
+    .ar  { color: var(--text-mute); user-select: none; }
+    .fn  { color: var(--blue); }
+    .fnx { color: var(--good); font-weight: 600; }
+    .pr  { color: var(--text-sec); }
+    .ky  { color: var(--violet); }
+    .sv  { color: var(--aqua); }
+    .nv  { color: var(--yellow); }
+    .rk  { color: var(--text-sec); }
+    .rv  { color: var(--blue); }
+    .rvg { color: var(--good); }
+
+    /* DONE badge */
+    .done {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: rgba(12,163,12,0.11);
+      border: 1px solid rgba(12,163,12,0.32);
+      color: var(--good);
+      font-size: 9.5px;
+      font-family: system-ui, sans-serif;
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      vertical-align: middle;
+      margin-left: 7px;
+      opacity: 0;
+    }
+
+    /* STILL WORKING annotation */
+    .still {
+      font-family: system-ui, sans-serif;
+      font-size: 10.5px;
+      color: var(--text-mute);
+      margin-top: 4px;
+      opacity: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .still::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--critical);
+      flex-shrink: 0;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    /* ── Stats footer ── */
+    .pf {
+      padding: 11px 16px;
+      border-top: 1px solid var(--grid);
+      opacity: 0;
+    }
+
+    .tbar {
+      height: 2px;
+      background: var(--surface-3);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 9px;
+    }
+    .tfill {
+      height: 100%; border-radius: 2px;
+      width: 0; /* animated via JS */
+    }
+    .left  .tfill { background: var(--critical); }
+    .right .tfill { background: var(--good); }
+
+    .srow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stok {
+      font-size: 22px; font-weight: 700; line-height: 1;
+      font-variant-numeric: proportional-nums;
+    }
+    .left  .stok { color: var(--critical); }
+    .right .stok { color: var(--good); }
+    .stok span { font-size: 13px; font-weight: 400; color: var(--text-mute); margin-left: 3px; }
+
+    .sdet {
+      font-size: 11px;
+      color: var(--text-mute);
+      text-align: right;
+      line-height: 1.55;
+    }
+
+    /* ── Savings row ── */
+    .savings {
+      width: 100%;
+      max-width: 840px;
+      margin-top: 16px;
+      background: rgba(57,135,229,0.07);
+      border: 1px solid rgba(57,135,229,0.18);
+      border-radius: 8px;
+      padding: 13px 24px;
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      opacity: 0;
+    }
+    .si { text-align: center; }
+    .sv2 {
+      font-size: 24px; font-weight: 700;
+      color: var(--good); line-height: 1;
+      font-variant-numeric: proportional-nums;
+    }
+    .sl {
+      font-size: 10px;
+      color: var(--text-mute);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 3px;
+    }
+
+    /* ── Replay ── */
+    .replay {
+      margin-top: 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-mute);
+      font-size: 12px;
+      font-family: system-ui, sans-serif;
+      padding: 5px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .replay:hover {
+      color: var(--text-sec);
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    /* ── Animation keyframes ── */
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes barFill {
+      from { width: 0; }
+      to   { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1><em>NavMCP</em> · <em>NavWebMCP</em></h1>
+  <p>Upfront information gathering vs sequential round-trips</p>
+</div>
+
+<div class="grid">
+
+  <!-- ── LEFT: without NavMCP ── -->
+  <div class="panel left">
+    <div class="ph">
+      <span class="ph-dot"></span>
+      <span class="ph-label">Without NavMCP</span>
+      <span class="call-count" id="lcc"></span>
+    </div>
+    <div class="pb">
+
+      <!-- call 1 -->
+      <div class="blk" id="l1">
+        <span class="ar">→</span> <span class="fn">searchAvailability</span><span class="pr">({</span><br>
+        &nbsp;&nbsp;<span class="ky">date</span><span class="pr">:</span> <span class="sv">"2024-11-15"</span><span class="pr">,</span><br>
+        &nbsp;&nbsp;<span class="ky">partySize</span><span class="pr">:</span> <span class="nv">4</span><br>
+        <span class="pr">})</span>
+      </div>
+      <div class="blk" id="lr1">
+        <span class="ar">←</span> <span class="pr">{</span> <span class="rk">slots:</span> <span class="rv">["18:00","19:30","21:00"]</span> <span class="pr">}</span>
+      </div>
+
+      <!-- call 2 -->
+      <div class="blk" id="l2">
+        <span class="ar">→</span> <span class="fn">createReservation</span><span class="pr">({</span><br>
+        &nbsp;&nbsp;<span class="ky">date</span><span class="pr">:</span> <span class="sv">"2024-11-15"</span><span class="pr">,</span> <span class="ky">time</span><span class="pr">:</span> <span class="sv">"19:30"</span><span class="pr">,</span><br>
+        &nbsp;&nbsp;<span class="ky">partySize</span><span class="pr">:</span> <span class="nv">4</span><span class="pr">,</span> <span class="ky">name</span><span class="pr">:</span> <span class="sv">"Alice Chen"</span><br>
+        <span class="pr">})</span>
+      </div>
+      <div class="blk" id="lr2">
+        <span class="ar">←</span> <span class="pr">{</span> <span class="rk">id:</span> <span class="rv">"res_abc123"</span><span class="pr">,</span> <span class="rk">status:</span> <span class="rvg">"confirmed"</span> <span class="pr">}</span>
+      </div>
+
+      <!-- call 3 -->
+      <div class="blk" id="l3">
+        <span class="ar">→</span> <span class="fn">getReservation</span><span class="pr">({</span> <span class="ky">id</span><span class="pr">:</span> <span class="sv">"res_abc123"</span> <span class="pr">})</span>
+      </div>
+      <div class="blk" id="lr3">
+        <span class="ar">←</span> <span class="pr">{</span> <span class="rk">id:</span> <span class="rv">"res_abc123"</span><span class="pr">,</span> <span class="rk">table:</span> <span class="nv">7</span><span class="pr">,</span> <span class="rk">time:</span> <span class="rv">"19:30"</span> <span class="pr">}</span>
+      </div>
+
+    </div>
+    <div class="pf" id="lf">
+      <div class="tbar"><div class="tfill" id="ltfill"></div></div>
+      <div class="srow">
+        <div><span class="stok">747<span>tokens</span></span></div>
+        <div class="sdet">3 calls<br>~2 100 ms</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: with NavMCP ── -->
+  <div class="panel right">
+    <div class="ph">
+      <span class="ph-dot"></span>
+      <span class="ph-label">NavMCP / NavWebMCP</span>
+    </div>
+    <div class="pb">
+
+      <!-- single call -->
+      <div class="blk" id="r1">
+        <span class="ar">→</span> <span class="fnx">book</span><span class="pr">({</span><br>
+        &nbsp;&nbsp;<span class="ky">date</span><span class="pr">:</span> <span class="sv">"2024-11-15"</span><span class="pr">,</span> <span class="ky">time</span><span class="pr">:</span> <span class="sv">"19:30"</span><span class="pr">,</span><br>
+        &nbsp;&nbsp;<span class="ky">partySize</span><span class="pr">:</span> <span class="nv">4</span><span class="pr">,</span> <span class="ky">name</span><span class="pr">:</span> <span class="sv">"Alice Chen"</span><br>
+        <span class="pr">})</span>
+      </div>
+      <div class="blk" id="rr1">
+        <span class="ar">←</span> <span class="pr">{</span> <span class="rk">id:</span> <span class="rv">"res_abc123"</span><span class="pr">,</span><br>
+        &nbsp;&nbsp;<span class="rk">status:</span> <span class="rvg">"confirmed"</span><span class="pr">,</span> <span class="rk">table:</span> <span class="nv">7</span> <span class="pr">}</span>
+        <span class="done" id="done">DONE ✓</span>
+      </div>
+
+      <!-- "still running" note that appears while left is still going -->
+      <div class="still" id="still" style="margin-top:14px;">
+        left panel still running 2 more calls…
+      </div>
+
+    </div>
+    <div class="pf" id="rf">
+      <div class="tbar"><div class="tfill" id="rtfill"></div></div>
+      <div class="srow">
+        <div><span class="stok">80<span>tokens</span></span></div>
+        <div class="sdet">1 call<br>~310 ms</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- savings row -->
+<div class="savings" id="savings">
+  <div class="si">
+    <div class="sv2">89%</div>
+    <div class="sl">fewer tokens</div>
+  </div>
+  <div class="si">
+    <div class="sv2">6.8×</div>
+    <div class="sl">faster</div>
+  </div>
+  <div class="si">
+    <div class="sv2">3 → 1</div>
+    <div class="sl">calls</div>
+  </div>
+</div>
+
+<button class="replay" onclick="replay()">↺ Replay</button>
+
+<script>
+  /* ─── Animation schedule ───────────────────────────────────────────
+   *  Both sides start together.
+   *  Right (NavMCP) finishes at ~1.1s while left is still on call 1.
+   *  Left finishes at ~3.8s.
+   *  Story: right says DONE while left is still grinding through calls.
+   * ─────────────────────────────────────────────────────────────────*/
+  var T = {
+    // left calls
+    l1:  0.4,
+    lr1: 1.15,
+    l2:  1.85,
+    lr2: 2.55,
+    l3:  3.1,
+    lr3: 3.7,
+    // left stats footer
+    lf:  4.0,
+    // right single call
+    r1:  0.4,
+    rr1: 0.95,
+    done: 1.05,
+    // "still running" note on right
+    still: 1.2,
+    // right stats footer
+    rf:  1.25,
+    // savings
+    savings: 4.3,
+  };
+
+  function a(id, delay, dur) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.animation = 'none';
+    el.style.opacity = '0';
+    // double rAF to force reflow before re-applying
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        el.style.animation = 'appear ' + (dur || 0.32) + 's ease ' + delay + 's forwards';
+      });
+    });
+  }
+
+  function bar(id, delay, dur) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.animation = 'none';
+    el.style.width = '0';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        el.style.animation = 'barFill ' + dur + 's ease ' + delay + 's forwards';
+      });
+    });
+  }
+
+  // call counter on left header
+  var ccEl = document.getElementById('lcc');
+  var ccTimers = [];
+
+  function updateCC(n, t) {
+    ccTimers.push(setTimeout(function() {
+      ccEl.textContent = n + ' / 3 calls';
+    }, t * 1000));
+  }
+
+  function clearCC() {
+    ccTimers.forEach(clearTimeout);
+    ccTimers = [];
+    ccEl.textContent = '';
+  }
+
+  // "still running" timeout: hide it when left finishes
+  var stillTimer;
+  function scheduleStillHide() {
+    stillTimer && clearTimeout(stillTimer);
+    stillTimer = setTimeout(function() {
+      var el = document.getElementById('still');
+      if (el) { el.style.transition = 'opacity 0.4s'; el.style.opacity = '0'; }
+    }, T.lf * 1000);
+  }
+
+  function run() {
+    // left calls
+    a('l1',  T.l1);
+    a('lr1', T.lr1);
+    a('l2',  T.l2);
+    a('lr2', T.lr2);
+    a('l3',  T.l3);
+    a('lr3', T.lr3);
+    a('lf',  T.lf);
+    bar('ltfill', T.lf + 0.05, 0.3);
+
+    // right call
+    a('r1',  T.r1);
+    a('rr1', T.rr1);
+    a('done', T.done, 0.2);
+    a('still', T.still, 0.25);
+    a('rf',  T.rf);
+    bar('rtfill', T.rf + 0.05, 0.25);
+
+    // savings
+    a('savings', T.savings, 0.4);
+
+    // call counter
+    clearCC();
+    updateCC(1, T.l1 + 0.05);
+    updateCC(2, T.l2 + 0.05);
+    updateCC(3, T.l3 + 0.05);
+
+    scheduleStillHide();
+  }
+
+  function replay() {
+    // reset "still" element transition so it fades properly next time
+    var still = document.getElementById('still');
+    still.style.transition = '';
+    run();
+  }
+
+  // start + auto-loop every 7.5s
+  run();
+  setInterval(replay, 7500);
+</script>
+</body>
+</html>
