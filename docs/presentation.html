@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebMCP / AgentBridge — Protocol Presentation</title>
+<style>
+  /* ── palette tokens ─────────────────────────────────── */
+  :root {
+    --surface:      #fcfcfb;
+    --page:         #f0efec;
+    --ink-1:        #0b0b0b;
+    --ink-2:        #52514e;
+    --ink-muted:    #898781;
+    --grid:         #e1e0d9;
+    --baseline:     #c3c2b7;
+    --s1:           #2a78d6;
+    --s2:           #008300;
+    --s3:           #e87ba4;
+    --s4:           #eda100;
+    --s5:           #1baf7a;
+    --s6:           #eb6834;
+    --good:         #006300;
+    --good-fill:    #0ca30c;
+    --warn:         #fab219;
+    --crit:         #d03b3b;
+    --seq-lo:       #cde2fb;
+    --seq-hi:       #0d366b;
+    --accent:       #2a78d6;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --surface:#1a1a19;--page:#0d0d0d;--ink-1:#ffffff;--ink-2:#c3c2b7;--ink-muted:#898781;--grid:#2c2c2a;--baseline:#383835;--s1:#3987e5;--s2:#008300;--s3:#d55181;--s4:#c98500;--s5:#199e70;--s6:#d95926;--good:#0ca30c;--good-fill:#0ca30c;--warn:#fab219;--crit:#d03b3b;color-scheme:dark; }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--ink-1);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* ── slide container ────────────────────────────────── */
+  .deck { width: 100%; max-width: 960px; margin: 0 auto; padding: 24px 16px 80px; }
+
+  .slide {
+    background: var(--surface);
+    border: 1px solid var(--grid);
+    border-radius: 12px;
+    padding: 48px 56px;
+    margin-bottom: 32px;
+    position: relative;
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* slide counter badge */
+  .slide::before {
+    content: attr(data-n);
+    position: absolute;
+    top: 20px; right: 24px;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: .06em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── typography ─────────────────────────────────────── */
+  .kicker {
+    font-size: 11px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 2.4rem; font-weight: 700; line-height: 1.15; color: var(--ink-1); }
+  h2 { font-size: 1.6rem; font-weight: 700; line-height: 1.2; color: var(--ink-1); margin-bottom: 4px; }
+  .subtitle { font-size: 1.1rem; color: var(--ink-2); margin-top: 12px; }
+  .body     { font-size: .95rem; color: var(--ink-2); }
+
+  /* ── KPI row ─────────────────────────────────────────── */
+  .kpi-row {
+    display: flex; gap: 20px; flex-wrap: wrap; margin-top: 32px;
+  }
+  .kpi {
+    flex: 1; min-width: 140px;
+    background: var(--page);
+    border: 1px solid var(--grid);
+    border-radius: 8px;
+    padding: 20px 22px;
+  }
+  .kpi-label { font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 6px; }
+  .kpi-value { font-size: 2rem; font-weight: 700; color: var(--ink-1); }
+  .kpi-delta { font-size: .8rem; font-weight: 600; margin-top: 4px; }
+  .delta-good { color: var(--good); }
+  .delta-warn { color: var(--crit); }
+
+  /* ── comparison table ────────────────────────────────── */
+  .comp-table {
+    width: 100%; border-collapse: collapse; margin-top: 28px;
+    font-size: .85rem;
+  }
+  .comp-table th {
+    text-align: left; padding: 8px 14px;
+    font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ink-muted); border-bottom: 1.5px solid var(--baseline);
+  }
+  .comp-table td {
+    padding: 11px 14px; border-bottom: 1px solid var(--grid);
+    color: var(--ink-2); vertical-align: middle;
+  }
+  .comp-table tr:last-child td { border-bottom: none; }
+  .comp-table td:first-child { color: var(--ink-1); font-weight: 500; }
+  .cell-good  { color: var(--good)!important; font-weight: 600; }
+  .cell-warn  { color: var(--crit)!important; font-weight: 600; }
+  .cell-hi    { background: color-mix(in srgb, var(--s1) 8%, transparent); }
+
+  /* ── bar chart ───────────────────────────────────────── */
+  .bar-chart { margin-top: 32px; }
+  .bar-group { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bar-label { width: 170px; font-size: .82rem; color: var(--ink-2); text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 22px; background: var(--grid); border-radius: 4px; position: relative; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 4px; transition: width .4s ease; }
+  .bar-value { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: .75rem; font-weight: 600; color: var(--ink-1); }
+  .bar-value-outside {
+    font-size: .78rem; font-weight: 600; color: var(--ink-2); white-space: nowrap;
+  }
+
+  /* grouped bars */
+  .grouped-chart { margin-top: 24px; }
+  .grouped-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .grouped-label { width: 160px; font-size: .8rem; color: var(--ink-2); text-align: right; flex-shrink: 0; }
+  .grouped-bars  { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .grouped-bar   { display: flex; align-items: center; gap: 6px; }
+  .grouped-bar-fill { height: 16px; border-radius: 3px; min-width: 2px; }
+  .grouped-bar-val  { font-size: .72rem; color: var(--ink-2); white-space: nowrap; }
+
+  /* ── legend ──────────────────────────────────────────── */
+  .legend {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    margin-top: 12px; margin-bottom: 4px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--ink-2); }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── architecture diagram ────────────────────────────── */
+  .arch { margin-top: 28px; display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .arch-col { flex: 1; min-width: 180px; }
+  .arch-title { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 10px; }
+  .arch-box {
+    background: var(--page); border: 1px solid var(--grid);
+    border-radius: 6px; padding: 10px 14px;
+    font-size: .82rem; color: var(--ink-2); margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .arch-box-accent { border-left: 3px solid var(--s1); }
+  .arch-box-green  { border-left: 3px solid var(--s2); }
+  .arch-box-orange { border-left: 3px solid var(--s6); }
+  .arch-connector {
+    text-align: center; font-size: .75rem; color: var(--ink-muted);
+    padding: 6px 0; letter-spacing: .04em;
+  }
+  .arch-arrow { font-size: 1.1rem; }
+
+  /* ── bullet list ─────────────────────────────────────── */
+  .bullets { margin-top: 24px; list-style: none; display: flex; flex-direction: column; gap: 14px; }
+  .bullets li {
+    padding-left: 20px; position: relative;
+    font-size: .95rem; color: var(--ink-2); line-height: 1.55;
+  }
+  .bullets li::before { content: "–"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+  .bullets li strong { color: var(--ink-1); }
+
+  /* ── two-col layout ──────────────────────────────────── */
+  .two-col { display: flex; gap: 32px; margin-top: 28px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 220px; }
+
+  /* ── token savings visual ────────────────────────────── */
+  .token-grid { display: flex; gap: 16px; margin-top: 28px; flex-wrap: wrap; }
+  .token-card {
+    flex: 1; min-width: 150px;
+    border: 1px solid var(--grid); border-radius: 8px;
+    padding: 18px; background: var(--page);
+    text-align: center;
+  }
+  .token-card-label { font-size: .75rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 8px; }
+  .token-big   { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+  .token-small { font-size: .85rem; color: var(--ink-2); margin-top: 4px; }
+
+  /* ── timeline / flow ─────────────────────────────────── */
+  .flow { display: flex; align-items: center; gap: 0; margin-top: 28px; flex-wrap: wrap; justify-content: center; }
+  .flow-step {
+    text-align: center; padding: 14px 18px;
+    background: var(--page); border: 1px solid var(--grid); border-radius: 8px;
+    min-width: 110px;
+  }
+  .flow-step-num { font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .flow-step-label { font-size: .85rem; font-weight: 600; color: var(--ink-1); }
+  .flow-step-body  { font-size: .75rem; color: var(--ink-2); margin-top: 3px; }
+  .flow-arrow { font-size: 1.4rem; color: var(--ink-muted); padding: 0 6px; }
+
+  /* ── divider ─────────────────────────────────────────── */
+  hr.slide-divider { border: none; border-top: 1px solid var(--grid); margin: 4px 0 20px; }
+
+  /* ── code mono ───────────────────────────────────────── */
+  code {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: .82em; background: var(--page); border-radius: 3px;
+    padding: 1px 5px; color: var(--accent);
+  }
+
+  /* ── agenda slide ────────────────────────────────────── */
+  .agenda { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; }
+  .agenda-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px; border-radius: 6px;
+    border: 1px solid var(--grid); background: var(--page);
+  }
+  .agenda-time { font-size: .75rem; font-variant-numeric: tabular-nums; color: var(--ink-muted); width: 36px; flex-shrink: 0; }
+  .agenda-label { font-size: .9rem; font-weight: 500; color: var(--ink-1); }
+  .agenda-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--s1); flex-shrink: 0; }
+
+  /* ── quote block ─────────────────────────────────────── */
+  .quote {
+    border-left: 3px solid var(--s1);
+    padding: 14px 20px; margin-top: 28px;
+    background: var(--page); border-radius: 0 6px 6px 0;
+    font-size: 1rem; color: var(--ink-2); font-style: italic;
+    line-height: 1.6;
+  }
+
+  /* ── last slide ──────────────────────────────────────── */
+  .cta-row { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
+  .cta {
+    padding: 12px 22px; border-radius: 6px; font-size: .9rem; font-weight: 600;
+    text-decoration: none; display: inline-block;
+  }
+  .cta-primary   { background: var(--s1); color: #fff; }
+  .cta-secondary { background: transparent; border: 1.5px solid var(--s1); color: var(--s1); }
+
+  @media print {
+    body { background: white; }
+    .slide { page-break-inside: avoid; page-break-after: always; margin-bottom: 0; border: none; }
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 1 — TITLE
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="01 / 10">
+  <div class="kicker">Protocol Proposal · 2026</div>
+  <h1>WebMCP &amp; AgentBridge</h1>
+  <p class="subtitle">Frontend-orchestrated AI agents — one function call instead of many</p>
+
+  <div class="kpi-row" style="margin-top:48px">
+    <div class="kpi">
+      <div class="kpi-label">Token savings</div>
+      <div class="kpi-value">85.7%</div>
+      <div class="kpi-delta delta-good">vs. 3-call MCP baseline</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">HTTP round-trips</div>
+      <div class="kpi-value">−66.7%</div>
+      <div class="kpi-delta delta-good">10 calls instead of 30</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Wall-clock (MCP)</div>
+      <div class="kpi-value">−67%</div>
+      <div class="kpi-delta delta-good">30 ms/booking vs 91 ms</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Operations registered</div>
+      <div class="kpi-value">55</div>
+      <div class="kpi-delta" style="color:var(--ink-muted)">across 6 domains</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 2 — AGENDA
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="02 / 10">
+  <div class="kicker">Agenda</div>
+  <h2>10-minute walk-through</h2>
+  <div class="agenda">
+    <div class="agenda-item"><div class="agenda-dot"></div><div class="agenda-time">0:00</div><div class="agenda-label">The problem — why current agent patterns are expensive</div></div>
+    <div class="agenda-item"><div class="agenda-dot" style="background:var(--s2)"></div><div class="agenda-time">2:00</div><div class="agenda-label">The protocol — WebMCP + AgentBridge architecture</div></div>
+    <div class="agenda-item"><div class="agenda-dot" style="background:var(--s6)"></div><div class="agenda-time">4:00</div><div class="agenda-label">Progressive tool disclosure — how agents discover operations</div></div>
+    <div class="agenda-item"><div class="agenda-dot" style="background:var(--s4)"></div><div class="agenda-time">6:00</div><div class="agenda-label">Benchmark results — token and latency savings</div></div>
+    <div class="agenda-item"><div class="agenda-dot" style="background:var(--s5)"></div><div class="agenda-time">8:00</div><div class="agenda-label">Security, RBAC, and audit model</div></div>
+    <div class="agenda-item"><div class="agenda-dot" style="background:var(--s3)"></div><div class="agenda-time">9:30</div><div class="agenda-label">Next steps &amp; Q&amp;A</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 3 — THE PROBLEM
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="03 / 10">
+  <div class="kicker">The Problem</div>
+  <h2>How agents work today — and what it costs</h2>
+  <p class="body" style="margin-top:8px">Every subsequent tool call re-reads all prior results. Cost compounds.</p>
+
+  <div class="two-col" style="margin-top:24px">
+    <div class="col">
+      <div class="arch-title">3-call pattern (status quo)</div>
+      <div class="flow" style="flex-direction:column; gap:4px; align-items:stretch; margin-top:0">
+        <div class="arch-box arch-box-orange">
+          <span>1. <code>searchAvailability</code></span>
+        </div>
+        <div class="arch-connector">↓ agent reads result #1</div>
+        <div class="arch-box arch-box-orange">
+          <span>2. <code>createReservation</code></span>
+        </div>
+        <div class="arch-connector">↓ agent re-reads results #1 + #2</div>
+        <div class="arch-box arch-box-orange">
+          <span>3. <code>addLoyaltyPoints</code></span>
+        </div>
+        <div class="arch-connector" style="color:var(--crit); font-weight:600">3 HTTP calls · growing context</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="arch-title">AgentBridge composite (this protocol)</div>
+      <div class="arch-box arch-box-accent" style="margin-top:0; padding:16px 14px">
+        <span>1. <code>book({ guestId, roomId, dates })</code></span>
+      </div>
+      <div class="arch-connector">↓ orchestration runs server-side</div>
+      <div class="arch-box" style="border-left:3px solid var(--s2)">
+        <span>← structured result, zero cumulative context</span>
+      </div>
+      <div class="arch-connector" style="color:var(--good); font-weight:600">1 HTTP call · no context bleed</div>
+
+      <div class="quote" style="margin-top:16px; font-size:.85rem">
+        The agent calls one named function. Domain logic lives in the page — not as tokens in the agent's context.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 4 — APPROACH COMPARISON TABLE
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="04 / 10">
+  <div class="kicker">Approach Comparison</div>
+  <h2>Three strategies for AI-agent integration</h2>
+
+  <table class="comp-table">
+    <thead>
+      <tr>
+        <th>Approach</th>
+        <th>Stability</th>
+        <th>Token cost</th>
+        <th>Agent burden</th>
+        <th>HTTP calls / action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Browser automation (Playwright)</td>
+        <td class="cell-warn">Breaks on UI change</td>
+        <td class="cell-warn">Very high (DOM)</td>
+        <td class="cell-warn">Must map UI → intent</td>
+        <td class="cell-warn">Many</td>
+      </tr>
+      <tr>
+        <td>Raw MCP tool calls</td>
+        <td>Stable</td>
+        <td class="cell-warn">High — 3+ / action</td>
+        <td class="cell-warn">Knows domain logic</td>
+        <td class="cell-warn">3+</td>
+      </tr>
+      <tr class="cell-hi">
+        <td><strong>AgentBridge / WebMCP</strong></td>
+        <td class="cell-good">Stable — API contract</td>
+        <td class="cell-good">Low — 1 call</td>
+        <td class="cell-good">Calls one function</td>
+        <td class="cell-good">1</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <ul class="bullets" style="margin-top:24px">
+    <li><strong>Cumulative context</strong> is the hidden cost: each new tool call re-reads all prior results. A 3-step workflow with average output tokens of 614 each ≈ 3,251 cumulative tokens — the single-call approach contributes 0.</li>
+    <li><strong>Domain logic as tokens</strong> means the agent must know sequencing, preconditions, and error handling — fragile and expensive. The composite op moves that logic into the page.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 5 — ARCHITECTURE
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="05 / 10">
+  <div class="kicker">Architecture</div>
+  <h2>One registry, two surfaces</h2>
+  <p class="body" style="margin-top:6px">The same 55 operations are exposed identically over WebMCP (browser) and MCP Streamable HTTP (server). Only the transport changes.</p>
+
+  <div class="arch" style="margin-top:28px; align-items:stretch">
+    <div class="arch-col" style="flex:1.5">
+      <div class="arch-title">Single source of truth</div>
+      <div class="arch-box arch-box-accent" style="font-weight:600; color:var(--ink-1)">
+        <span>lib/operations/ — Operation registry</span>
+      </div>
+      <div class="arch-box" style="font-size:.78rem; margin-top:2px">
+        <span>name · description · inputSchema (Zod) · roles · handler</span>
+      </div>
+      <div class="arch-connector" style="padding:10px 0">dispatched to both adapters ↓</div>
+      <div style="display:flex; gap:10px">
+        <div style="flex:1">
+          <div class="arch-title">WebMCP (browser)</div>
+          <div class="arch-box arch-box-green" style="font-size:.8rem">document.modelContext.registerTool()</div>
+          <div class="arch-box" style="font-size:.78rem; margin-top:2px">Session cookie auth</div>
+        </div>
+        <div style="flex:1">
+          <div class="arch-title">MCP HTTP (server)</div>
+          <div class="arch-box arch-box-orange" style="font-size:.8rem">app/api/[transport]/route.ts</div>
+          <div class="arch-box" style="font-size:.78rem; margin-top:2px">RFC 8707 Bearer token</div>
+        </div>
+      </div>
+    </div>
+    <div class="arch-col" style="flex:1">
+      <div class="arch-title">7 Always-on MCP tools</div>
+      <div class="arch-box" style="font-size:.8rem; margin-bottom:4px"><code>explore</code> — navigate module tree</div>
+      <div class="arch-box" style="font-size:.8rem; margin-bottom:4px"><code>search</code> — glob over op paths</div>
+      <div class="arch-box" style="font-size:.8rem; margin-bottom:4px"><code>describe_tool</code> — get input schema</div>
+      <div class="arch-box" style="font-size:.8rem; margin-bottom:4px"><code>invoke</code> — call any op directly</div>
+      <div class="arch-box" style="font-size:.8rem; margin-bottom:4px"><code>load_tools</code> — promote to native</div>
+      <div class="arch-box" style="font-size:.8rem; margin-bottom:4px"><code>unload_tools</code></div>
+      <div class="arch-box" style="font-size:.8rem"><code>getCapabilities</code> — version hash</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 6 — PROGRESSIVE TOOL DISCLOSURE
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="06 / 10">
+  <div class="kicker">Progressive Tool Disclosure</div>
+  <h2>Agents discover operations without loading all 55</h2>
+
+  <div class="two-col" style="margin-top:24px">
+    <div class="col">
+      <div class="arch-title">Path A — Load &amp; call natively</div>
+      <div class="flow" style="flex-direction:column; gap:4px; align-items:stretch; margin-top:0">
+        <div class="arch-box arch-box-accent" style="font-size:.8rem">1. <code>explore("reservation.*")</code> → subtree</div>
+        <div class="arch-box arch-box-accent" style="font-size:.8rem">2. <code>load_tools(["book"])</code> → session state</div>
+        <div class="arch-box arch-box-accent" style="font-size:.8rem">3. Call <code>book(…)</code> as a native tool</div>
+      </div>
+      <p class="body" style="margin-top:10px;font-size:.8rem">Tool state persists per-token, 24h TTL. Agent sees only what it loaded.</p>
+    </div>
+    <div class="col">
+      <div class="arch-title">Path B — Invoke directly (no state)</div>
+      <div class="flow" style="flex-direction:column; gap:4px; align-items:stretch; margin-top:0">
+        <div class="arch-box arch-box-green" style="font-size:.8rem">1. <code>invoke("book", {…})</code></div>
+        <div class="arch-box arch-box-green" style="font-size:.8rem">← result returned inline</div>
+      </div>
+      <p class="body" style="margin-top:10px;font-size:.8rem">One-off calls without session overhead. Reads dispatched concurrently; writes sequentially.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:28px">
+    <div class="arch-title">Token cost by strategy (7 ops)</div>
+    <div class="legend" style="margin-bottom:12px">
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--s1)"></div>Dump all ops</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--s2)"></div>Progressive load (2 ops)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--s5)"></div>Progressive invoke</div>
+    </div>
+    <div class="bar-chart">
+      <div class="bar-group">
+        <div class="bar-label">Dump all (7 ops)</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:100%;background:var(--s1)"></div>
+          <div class="bar-value" style="color:#fff">~700 tok</div>
+        </div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label">Progressive load</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:69.3%;background:var(--s2)"></div>
+          <div class="bar-value" style="color:#fff">~485 tok</div>
+        </div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label">Progressive invoke</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:28.6%;background:var(--s5)"></div>
+          <div class="bar-value" style="color:var(--ink-1)">~200 tok</div>
+        </div>
+      </div>
+    </div>
+    <p class="body" style="font-size:.78rem;margin-top:6px">For 50 ops: dump all = ~5 000 tokens; progressive invoke stays flat at ~200.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 7 — BENCHMARK RESULTS
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="07 / 10">
+  <div class="kicker">Benchmark Results</div>
+  <h2>10 bookings, localhost, in-memory store</h2>
+
+  <div class="legend" style="margin-top:20px">
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--s1)"></div>3-call MCP (baseline)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--s5)"></div>book() WebMCP</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--s2)"></div>book-op MCP (server-side)</div>
+  </div>
+
+  <div class="grouped-chart" style="margin-top:18px">
+    <!-- Total tokens -->
+    <div class="grouped-row">
+      <div class="grouped-label">Total tokens</div>
+      <div class="grouped-bars">
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(5674/5674*min(360px,50vw));background:var(--s1)"></div>
+          <div class="grouped-bar-val">5,674</div>
+        </div>
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(811/5674*min(360px,50vw));background:var(--s5)"></div>
+          <div class="grouped-bar-val" style="color:var(--good);font-weight:600">811 (−85.7%)</div>
+        </div>
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(811/5674*min(360px,50vw));background:var(--s2)"></div>
+          <div class="grouped-bar-val" style="color:var(--good);font-weight:600">811 (−85.7%)</div>
+        </div>
+      </div>
+    </div>
+    <!-- HTTP calls -->
+    <div class="grouped-row">
+      <div class="grouped-label">HTTP calls (10 bookings)</div>
+      <div class="grouped-bars">
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(30/30*min(360px,50vw));background:var(--s1)"></div>
+          <div class="grouped-bar-val">30</div>
+        </div>
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(10/30*min(360px,50vw));background:var(--s5)"></div>
+          <div class="grouped-bar-val" style="color:var(--good);font-weight:600">10 (−66.7%)</div>
+        </div>
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(10/30*min(360px,50vw));background:var(--s2)"></div>
+          <div class="grouped-bar-val" style="color:var(--good);font-weight:600">10 (−66.7%)</div>
+        </div>
+      </div>
+    </div>
+    <!-- Wall-clock avg -->
+    <div class="grouped-row">
+      <div class="grouped-label">Avg latency / booking</div>
+      <div class="grouped-bars">
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(91/98*min(360px,50vw));background:var(--s1)"></div>
+          <div class="grouped-bar-val">91 ms</div>
+        </div>
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(98/98*min(360px,50vw));background:var(--s5)"></div>
+          <div class="grouped-bar-val">98 ms (browser sub-calls)</div>
+        </div>
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(30/98*min(360px,50vw));background:var(--s2)"></div>
+          <div class="grouped-bar-val" style="color:var(--good);font-weight:600">30 ms (−67%) ← in-process</div>
+        </div>
+      </div>
+    </div>
+    <!-- Cumulative context -->
+    <div class="grouped-row">
+      <div class="grouped-label">Cumulative context tokens</div>
+      <div class="grouped-bars">
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:calc(3251/3251*min(360px,50vw));background:var(--s1)"></div>
+          <div class="grouped-bar-val">3,251</div>
+        </div>
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:2px;background:var(--s5)"></div>
+          <div class="grouped-bar-val" style="color:var(--good);font-weight:600">0 (−100%)</div>
+        </div>
+        <div class="grouped-bar">
+          <div class="grouped-bar-fill" style="width:2px;background:var(--s2)"></div>
+          <div class="grouped-bar-val" style="color:var(--good);font-weight:600">0 (−100%)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="body" style="font-size:.78rem;margin-top:16px;color:var(--ink-muted)">
+    Key finding: <code>book-op MCP</code> (server-side in-process dispatch) is 3× faster than WebMCP because internal sub-calls skip HTTP hops. WebMCP still saves 85.7% of tokens vs. the baseline.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 8 — OPERATION MODEL
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="08 / 10">
+  <div class="kicker">Operation Model</div>
+  <h2>55 operations across 6 domains</h2>
+  <p class="body" style="margin-top:6px">Every op carries a validated schema (Zod), RBAC roles, a module path, and a result envelope.</p>
+
+  <div class="two-col" style="margin-top:24px">
+    <div class="col">
+      <div class="arch-title">Domain breakdown</div>
+      <div class="bar-chart" style="margin-top:8px">
+        <div class="bar-group">
+          <div class="bar-label" style="width:120px">Reservation</div>
+          <div class="bar-track" style="height:18px">
+            <div class="bar-fill" style="width:calc(8/14*100%);background:var(--s1)"></div>
+          </div>
+          <span class="bar-value-outside">8 ops</span>
+        </div>
+        <div class="bar-group">
+          <div class="bar-label" style="width:120px">CRM</div>
+          <div class="bar-track" style="height:18px">
+            <div class="bar-fill" style="width:calc(10/14*100%);background:var(--s2)"></div>
+          </div>
+          <span class="bar-value-outside">10 ops</span>
+        </div>
+        <div class="bar-group">
+          <div class="bar-label" style="width:120px">Front Office</div>
+          <div class="bar-track" style="height:18px">
+            <div class="bar-fill" style="width:calc(8/14*100%);background:var(--s3)"></div>
+          </div>
+          <span class="bar-value-outside">8 ops</span>
+        </div>
+        <div class="bar-group">
+          <div class="bar-label" style="width:120px">Tasks</div>
+          <div class="bar-track" style="height:18px">
+            <div class="bar-fill" style="width:calc(6/14*100%);background:var(--s4)"></div>
+          </div>
+          <span class="bar-value-outside">6 ops</span>
+        </div>
+        <div class="bar-group">
+          <div class="bar-label" style="width:120px">Housekeeping</div>
+          <div class="bar-track" style="height:18px">
+            <div class="bar-fill" style="width:calc(6/14*100%);background:var(--s5)"></div>
+          </div>
+          <span class="bar-value-outside">6 ops</span>
+        </div>
+        <div class="bar-group">
+          <div class="bar-label" style="width:120px">Finance</div>
+          <div class="bar-track" style="height:18px">
+            <div class="bar-fill" style="width:calc(7/14*100%);background:var(--s6)"></div>
+          </div>
+          <span class="bar-value-outside">7 ops</span>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="arch-title">Operation descriptor (key fields)</div>
+      <div class="arch-box" style="flex-direction:column; align-items:flex-start; font-family:ui-monospace,'Cascadia Code',Consolas,monospace; font-size:.75rem; line-height:1.6; gap:0; padding:14px 16px">
+        <span style="color:var(--s1)">name</span><span style="color:var(--ink-2)">: "book"</span><br>
+        <span style="color:var(--s1)">inputSchema</span><span style="color:var(--ink-2)">: z.object({…})  // Zod</span><br>
+        <span style="color:var(--s1)">permission</span><span style="color:var(--ink-2)">: "write"</span><br>
+        <span style="color:var(--s1)">roles</span><span style="color:var(--ink-2)">: ["customer","support","admin"]</span><br>
+        <span style="color:var(--s1)">module</span><span style="color:var(--ink-2)">: "reservation.booking"</span><br>
+        <span style="color:var(--s1)">parallelSafe</span><span style="color:var(--ink-2)">: false</span><br>
+        <span style="color:var(--s1)">handler</span><span style="color:var(--ink-2)">: (input, ctx) =&gt; Result&lt;T&gt;</span>
+      </div>
+      <div class="arch-title" style="margin-top:14px">Result envelope</div>
+      <div class="arch-box" style="flex-direction:column; align-items:flex-start; font-family:ui-monospace,'Cascadia Code',Consolas,monospace; font-size:.75rem; line-height:1.6; gap:0; padding:14px 16px">
+        <span style="color:var(--s2)">{ success: true,  data: T }</span><br>
+        <span style="color:var(--crit)">{ success: false, error: { code, message } }</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 9 — SECURITY & RBAC
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="09 / 10">
+  <div class="kicker">Security &amp; Access Control</div>
+  <h2>Layered controls at every call boundary</h2>
+
+  <div class="two-col" style="margin-top:24px">
+    <div class="col">
+      <div class="arch-title">RBAC hierarchy</div>
+      <div class="flow" style="flex-direction:column; gap:6px; align-items:stretch; margin-top:0">
+        <div class="arch-box arch-box-accent" style="justify-content:space-between">
+          <span><strong>admin</strong></span>
+          <span style="font-size:.75rem;color:var(--ink-muted)">all ops</span>
+        </div>
+        <div class="arch-box arch-box-green" style="justify-content:space-between">
+          <span><strong>support</strong></span>
+          <span style="font-size:.75rem;color:var(--ink-muted)">customer + support ops</span>
+        </div>
+        <div class="arch-box arch-box-orange" style="justify-content:space-between">
+          <span><strong>customer</strong></span>
+          <span style="font-size:.75rem;color:var(--ink-muted)">own-data read/write</span>
+        </div>
+      </div>
+      <p class="body" style="margin-top:10px; font-size:.8rem">
+        Role is checked at register time <em>and</em> on every call. Destructive ops carry <code>requiresConfirmation: true</code> — UI shows a dialog; agent must pass <code>confirm: true</code>.
+      </p>
+    </div>
+    <div class="col">
+      <div class="arch-title">Security controls</div>
+      <table class="comp-table" style="margin-top:0; font-size:.8rem">
+        <thead>
+          <tr><th>Control</th><th>Implementation</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Browser auth</td><td>Session cookie</td></tr>
+          <tr><td>MCP HTTP auth</td><td>RFC 8707 Bearer, 8h TTL</td></tr>
+          <tr><td>Input validation</td><td>Zod schema, every call</td></tr>
+          <tr><td>Audit log</td><td>Last 100 calls, SSE-streamed to UI</td></tr>
+          <tr><td>Capability versioning</td><td>DJB2 hash over op fingerprints</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <ul class="bullets" style="margin-top:20px">
+    <li><strong>RFC 8707 audience-bound tokens</strong> prevent token reuse across services — a token minted for this MCP server cannot be replayed elsewhere.</li>
+    <li><strong>Capability hash</strong> lets agents detect registry changes between sessions and refresh their tool list automatically.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SLIDE 10 — NEXT STEPS
+════════════════════════════════════════════════════ -->
+<div class="slide" data-n="10 / 10">
+  <div class="kicker">Next Steps</div>
+  <h2>What we're proposing</h2>
+
+  <div class="two-col" style="margin-top:24px">
+    <div class="col">
+      <ul class="bullets" style="margin-top:0">
+        <li><strong>Adopt the Operation registry pattern</strong> as the standard integration layer — single source of truth for both browser and server agent surfaces.</li>
+        <li><strong>Prefer composite ops over raw tool chains</strong> — move domain orchestration into the page, not into agent prompts.</li>
+        <li><strong>Use progressive disclosure</strong> (<code>explore</code> → <code>load_tools</code> or <code>invoke</code>) to keep context budgets flat regardless of registry size.</li>
+        <li><strong>Enable server-side in-process dispatch</strong> (<code>makeDispatch(ctx)</code>) for the maximum latency win — 3× faster than HTTP sub-calls.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="kpi-row" style="flex-direction:column; margin-top:0; gap:14px">
+        <div class="kpi">
+          <div class="kpi-label">Token reduction</div>
+          <div class="kpi-value" style="color:var(--good-fill)">85.7%</div>
+          <div class="kpi-delta" style="color:var(--ink-muted)">single composite call vs. 3-call chain</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Latency reduction (server)</div>
+          <div class="kpi-value" style="color:var(--good-fill)">67%</div>
+          <div class="kpi-delta" style="color:var(--ink-muted)">in-process dispatch, no HTTP hops</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Cumulative context</div>
+          <div class="kpi-value" style="color:var(--good-fill)">0</div>
+          <div class="kpi-delta" style="color:var(--ink-muted)">single-call approaches never re-read prior results</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote" style="margin-top:24px">
+    The browser already knows your business logic. AgentBridge makes it the agent's interface — not a side-effect of the agent's reasoning.
+  </div>
+</div>
+
+</div><!-- /deck -->
+</body>
+</html>
